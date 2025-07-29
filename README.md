@@ -92,20 +92,20 @@ app/                     # Expo Router screens
    
    Create a `.env` file in the project root:
    ```env
-   APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
-   APPWRITE_PROJECT_ID=687defff0035523d7f27
-   APPWRITE_DATABASE_ID=krishibazar
-   APPWRITE_STORAGE_BUCKET_ID=68849cef001df89be612
-   APPWRITE_PLATFORM=com.example.krishibazar
+   APPWRITE_ENDPOINT=
+   APPWRITE_PROJECT_ID=
+   APPWRITE_DATABASE_ID=
+   APPWRITE_STORAGE_BUCKET_ID=
+   APPWRITE_PLATFORM=
 
    # Collection IDs
-   CATEGORIES_COLLECTION_ID=68873a840017ad9cb4a4
-   FARMERS_COLLECTION_ID=68873a62001f447ef53f
-   MESSAGES_COLLECTION_ID=68873a970039225e85a7
-   ORDERS_COLLECTION_ID=68873aa8003724631e5c
-   PRODUCTS_COLLECTION_ID=68873ab20023a17f9431
-   REVIEWS_COLLECTION_ID=68873ab900299b95f096
-   USERS_COLLECTION_ID=6884a0b50020a181ca67
+   CATEGORIES_COLLECTION_ID=
+   FARMERS_COLLECTION_ID=
+   MESSAGES_COLLECTION_ID=
+   ORDERS_COLLECTION_ID=
+   PRODUCTS_COLLECTION_ID=
+   REVIEWS_COLLECTION_ID=
+   USERS_COLLECTION_ID=
    ```
 
 4. **Start the development server**
@@ -129,38 +129,36 @@ app/                     # Expo Router screens
 
 ### Collections
 
-#### USERS (6884a0b50020a181ca67)
+#### USERS 
 - User profiles with business information
 - Address and location data
 - Verification status
 
-#### PRODUCTS (68873ab20023a17f9431)
+#### PRODUCTS 
 - Product details with images
 - Pricing and availability
 - Location and delivery information
 
-#### CATEGORIES (68873a840017ad9cb4a4)
+#### CATEGORIES 
 - Product categories
 - Multilingual names and descriptions
 
-#### FARMERS (68873a62001f447ef53f)
+#### FARMERS 
 - Farmer profiles and farm information
 - Ratings and reviews
 - Verification status
 
-#### ORDERS (68873aa8003724631e5c)
+#### ORDERS 
 - Order details and status
 - Payment and delivery information
 - Tracking data
 
-#### MESSAGES (68873a970039225e85a7)
+#### MESSAGES 
 - Real-time messaging
-- File attachments support
-- Read receipts
 
-#### REVIEWS (68873ab900299b95f096)
+#### REVIEWS 
 - Product and farmer reviews
-- Ratings and comments
+- Ratings 
 - Verification status
 
 ## 🎨 Design System
@@ -181,14 +179,13 @@ app/                     # Expo Router screens
 ## 🔐 Authentication Flow
 
 1. **Registration**
-   - Email/phone verification
+   - Email verification
    - Business details collection
    - GST number validation
    - Address and location setup
 
 2. **Login**
-   - Email or phone login
-   - OTP verification
+   - Email login
    - Session management
 
 3. **Profile Management**
@@ -196,105 +193,9 @@ app/                     # Expo Router screens
    - Profile updates
    - Address management
 
-## 📱 Features Implementation
-
-### Real-time Messaging
-- Appwrite Realtime API integration
-- Message status tracking
-- File sharing capabilities
-- Conversation management
-
-### Order Management
-- Complete order lifecycle
-- Status tracking
-- Payment integration ready
-- Delivery management
-
-### Product Discovery
-- Advanced filtering
-- Category-based browsing
-- Location-based recommendations
-- Search functionality
-
-## 🔄 State Management
-
-### Redux Store Structure
-```typescript
-{
-  auth: {
-    user: User | null,
-    isAuthenticated: boolean,
-    isLoading: boolean,
-    error: string | null
-  },
-  products: {
-    products: Product[],
-    categories: Category[],
-    filters: FilterState,
-    isLoading: boolean
-  },
-  orders: {
-    orders: Order[],
-    selectedOrder: Order | null,
-    isLoading: boolean
-  },
-  messages: {
-    messages: Message[],
-    conversations: Conversation[],
-    isLoading: boolean
-  }
-}
-```
-
 ## 🚢 Deployment
 
-### Building for Production
 
-1. **Configure app.json**
-   ```json
-   {
-     "expo": {
-       "name": "Krishibazar",
-       "slug": "krishibazar",
-       "version": "1.0.0"
-     }
-   }
-   ```
-
-2. **Build for Android**
-   ```bash
-   npx expo build:android
-   ```
-
-3. **Build for iOS**
-   ```bash
-   npx expo build:ios
-   ```
-
-### Environment Configuration
-- Production Appwrite endpoint
-- Production database IDs
-- App store configurations
-- Push notification setup
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue in the repository
-- Contact the development team
-- Check the documentation
 
 ## 🔮 Future Enhancements
 
@@ -304,7 +205,3 @@ For support and questions:
 - Offline mode support
 - Advanced analytics
 - Multi-language expansion
-
----
-
-**Made with ❤️ for Indian farmers and wholesale buyers**
