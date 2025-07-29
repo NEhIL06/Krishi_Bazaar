@@ -1,0 +1,10 @@
+<!-- This is a placeholder for the splash screen image -->
+<!-- In a real project, you would place an actual PNG image file here -->
+<!-- For now, I'll create a simple SVG that can serve as a placeholder -->
+<svg width="1284" height="2778" viewBox="0 0 1284 2778" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1284" height="2778" fill="#4A7C59"/>
+  <circle cx="642" cy="1200" r="120" fill="#FF9933"/>
+  <text x="642" y="1450" text-anchor="middle" fill="white" font-size="72" font-weight="bold">Krishibazar</text>
+  <text x="642" y="1520" text-anchor="middle" fill="#FF9933" font-size="48">कृषिबाजार</text>
+  <path d="M542 1000 L642 900 L742 1000 L692 1050 L642 1000 L592 1050 Z" fill="white"/>
+</svg>
