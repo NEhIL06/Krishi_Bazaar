@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Button,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useForm, Controller } from 'react-hook-form';
@@ -21,6 +22,7 @@ import GlobalStyles from '../../src/constants/styles';
 import CustomInput from '../../src/components/common/CustomInput';
 import CustomButton from '../../src/components/common/CustomButton';
 import LoadingSpinner from '../../src/components/common/LoadingSpinner';
+import seed from '@/src/seed/seed';
 
 interface LoginFormData {
   emailOrPhone: string;
@@ -74,11 +76,14 @@ const LoginPage: React.FC = () => {
         )
       };
 
-      await dispatch(login(credentials)).unwrap();
+      await dispatch(login(credentials)).unwrap(); // change this it's weird
+
     } catch (error: any) {
       console.error('Login error:', error);
       setError('emailOrPhone', { message: 'Invalid credentials' });
+      
     }
+    router.push('/(tabs)');
   };
 
   return (
@@ -146,7 +151,7 @@ const LoginPage: React.FC = () => {
               </Text>
             </TouchableOpacity>
           </View>
-
+          
           {/* Login Form */}
           <View style={styles.form}>
             <Controller
@@ -234,7 +239,7 @@ const LoginPage: React.FC = () => {
               <Text style={styles.footerLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>
-
+          <Button title="Login" onPress={seed} />
           {/* Benefits */}
           <View style={styles.benefits}>
             <Text style={styles.benefitsTitle}>Why Choose Krishibazar?</Text>

@@ -9,6 +9,7 @@ import {
   FlatList,
   RefreshControl,
   SafeAreaView,
+  Button,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -27,6 +28,7 @@ import CategoryCard from '../../src/components/products/CategoryCard';
 import LoadingSpinner from '../../src/components/common/LoadingSpinner';
 import ErrorMessage from '../../src/components/common/ErrorMessage';
 import { Product, Category } from '../../src/types';
+import seed from '@/src/seed/seed';
 
 const HomePage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -161,7 +163,7 @@ const HomePage: React.FC = () => {
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
-          
+          <Button title="Categories" onPress={seed} />
           {categories.length > 0 ? (
             <FlatList
               horizontal

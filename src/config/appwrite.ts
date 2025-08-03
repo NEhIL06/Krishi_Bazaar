@@ -4,9 +4,9 @@ import { Client, Account, Databases, Storage, Functions, ID } from 'react-native
 const client = new Client();
 
 client
-  .setEndpoint(process.env.APPWRITE_ENDPOINT as string)
-  .setProject(process.env.APPWRITE_PROJECT_ID as string)
-  .setPlatform(process.env.APPWRITE_PLATFORM as string);
+  .setEndpoint("https://fra.cloud.appwrite.io/v1")
+  .setProject("688f4f530024f4b39ef6")
+  .setPlatform("com.nehil.react-native")
 
 // Initialize services
 export const account = new Account(client);
@@ -15,8 +15,8 @@ export const storage = new Storage(client);
 export const functions = new Functions(client);
 
 // Database and collection IDs
-export const DATABASE_ID = process.env.APPWRITE_DATABASE_ID as string;
-export const STORAGE_BUCKET_ID = process.env.APPWRITE_STORAGE_BUCKET_ID as string ;
+export const DATABASE_ID = "688f5012002f53e1b1de";
+export const STORAGE_BUCKET_ID = "688f502a003b047969d9" ;
 
 export const COLLECTION_IDS = {
   CATEGORIES: process.env.CATEGORIES_COLLECTION_ID as string,

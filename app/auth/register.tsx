@@ -20,19 +20,21 @@ import Colors from '../../src/constants/colors';
 import GlobalStyles from '../../src/constants/styles';
 import CustomInput from '../../src/components/common/CustomInput';
 import CustomButton from '../../src/components/common/CustomButton';
+import { account } from '@/src/config/appwrite';
 
 interface RegisterFormData {
   name: string;
   email: string;
   phone: string;
-  password: string;
-  confirmPassword: string;
   businessName: string;
   gstNumber: string;
   street: string;
   city: string;
   state: string;
   pincode: string;
+  country: "India";
+  password: string;
+  confirmPassword: string;
 }
 
 const RegisterPage: React.FC = () => {
@@ -41,7 +43,6 @@ const RegisterPage: React.FC = () => {
   
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
 
   const {
     control,
@@ -49,7 +50,11 @@ const RegisterPage: React.FC = () => {
     formState: { errors },
     watch,
     setError,
-  } = useForm<RegisterFormData>();
+  } = useForm<RegisterFormData>({
+    defaultValues: {
+      country: "India",
+    },
+  });
 
   const password = watch('password');
 
@@ -77,7 +82,7 @@ const RegisterPage: React.FC = () => {
   };
 
   const validatePincode = (value: string) => {
-    const pincodeRegex = /^[1-9][0-9]{5}$/;
+    const pincodeRegex = /^\d{6}$/;
     return pincodeRegex.test(value) || 'Please enter a valid 6-digit pincode';
   };
 
@@ -91,21 +96,17 @@ const RegisterPage: React.FC = () => {
       const userData = {
         name: data.name,
         email: data.email,
-        password: data.password,
         phone: `+91${data.phone}`,
         businessName: data.businessName,
         gstNumber: data.gstNumber,
-        address: {
-          street: data.street,
-          city: data.city,
-          state: data.state,
-          pincode: data.pincode,
-          country: 'India',
-        },
-        location: {
-          latitude: 0, // Will be updated with actual location
-          longitude: 0,
-        },
+        street: data.street,
+        city: data.city,
+        state: data.state,
+        pincode: data.pincode,
+        country: data.country,
+        isVerified: false, // Default value
+        password: data.password,
+        accountId: "later",
       };
 
       await dispatch(register(userData)).unwrap();
@@ -113,260 +114,6 @@ const RegisterPage: React.FC = () => {
       console.error('Registration error:', error);
     }
   };
-
-  const renderStep1 = () => (
-    <>
-      <Controller
-        control={control}
-        name="name"
-        rules={{ required: 'Full name is required' }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <CustomInput
-            label="Full Name"
-            placeholder="Enter your full name"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.name?.message}
-            required
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="email"
-        rules={{
-          required: 'Email is required',
-          pattern: {
-            value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-            message: 'Please enter a valid email address',
-          },
-        }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <CustomInput
-            label="Email Address"
-            placeholder="Enter your email"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.email?.message}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            required
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="phone"
-        rules={{
-          required: 'Phone number is required',
-          validate: validatePhone,
-        }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <CustomInput
-            label="Phone Number"
-            placeholder="Enter 10-digit phone number"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.phone?.message}
-            keyboardType="phone-pad"
-            required
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="password"
-        rules={{
-          required: 'Password is required',
-          minLength: {
-            value: 6,
-            message: 'Password must be at least 6 characters',
-          },
-        }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <View style={styles.passwordContainer}>
-            <CustomInput
-              label="Password"
-              placeholder="Enter your password"
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={errors.password?.message}
-              secureTextEntry={!showPassword}
-              required
-            />
-            <TouchableOpacity
-              style={styles.passwordToggle}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <MaterialIcons
-                name={showPassword ? 'visibility-off' : 'visibility'}
-                size={24}
-                color={Colors.neutral[500]}
-              />
-            </TouchableOpacity>
-          </View>
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="confirmPassword"
-        rules={{
-          required: 'Please confirm your password',
-          validate: (value) => value === password || 'Passwords do not match',
-        }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <View style={styles.passwordContainer}>
-            <CustomInput
-              label="Confirm Password"
-              placeholder="Confirm your password"
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={errors.confirmPassword?.message}
-              secureTextEntry={!showConfirmPassword}
-              required
-            />
-            <TouchableOpacity
-              style={styles.passwordToggle}
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-            >
-              <MaterialIcons
-                name={showConfirmPassword ? 'visibility-off' : 'visibility'}
-                size={24}
-                color={Colors.neutral[500]}
-              />
-            </TouchableOpacity>
-          </View>
-        )}
-      />
-    </>
-  );
-
-  const renderStep2 = () => (
-    <>
-      <Controller
-        control={control}
-        name="businessName"
-        rules={{ required: 'Business name is required' }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <CustomInput
-            label="Business Name"
-            placeholder="Enter your business name"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.businessName?.message}
-            required
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="gstNumber"
-        rules={{
-          required: 'GST number is required',
-          validate: validateGST,
-        }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <CustomInput
-            label="GST Number"
-            placeholder="Enter GST number (e.g., 22AAAAA0000A1Z5)"
-            value={value}
-            onChangeText={(text) => onChange(text.toUpperCase())}
-            onBlur={onBlur}
-            error={errors.gstNumber?.message}
-            autoCapitalize="characters"
-            required
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="street"
-        rules={{ required: 'Street address is required' }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <CustomInput
-            label="Street Address"
-            placeholder="Enter your street address"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.street?.message}
-            required
-          />
-        )}
-      />
-
-      <View style={styles.row}>
-        <Controller
-          control={control}
-          name="city"
-          rules={{ required: 'City is required' }}
-          render={({ field: { onChange, onBlur, value } }) => (
-            <CustomInput
-              label="City"
-              placeholder="Enter city"
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={errors.city?.message}
-              containerStyle={styles.halfWidth}
-              required
-            />
-          )}
-        />
-
-        <Controller
-          control={control}
-          name="state"
-          rules={{ required: 'State is required' }}
-          render={({ field: { onChange, onBlur, value } }) => (
-            <CustomInput
-              label="State"
-              placeholder="Enter state"
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={errors.state?.message}
-              containerStyle={styles.halfWidth}
-              required
-            />
-          )}
-        />
-      </View>
-
-      <Controller
-        control={control}
-        name="pincode"
-        rules={{
-          required: 'Pincode is required',
-          validate: validatePincode,
-        }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <CustomInput
-            label="Pincode"
-            placeholder="Enter 6-digit pincode"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.pincode?.message}
-            keyboardType="numeric"
-            required
-          />
-        )}
-      />
-    </>
-  );
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
@@ -393,48 +140,257 @@ const RegisterPage: React.FC = () => {
             </Text>
           </View>
 
-          {/* Progress Indicator */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${(currentStep / 2) * 100}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.progressText}>
-              Step {currentStep} of 2
-            </Text>
-          </View>
-
           {/* Form */}
           <View style={styles.form}>
-            {currentStep === 1 ? renderStep1() : renderStep2()}
+            <Controller
+              control={control}
+              name="name"
+              rules={{ required: 'Full name is required' }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <CustomInput
+                  label="Full Name"
+                  placeholder="Enter your full name"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.name?.message}
+                  required
+                />
+              )}
+            />
 
-            {currentStep === 1 ? (
-              <CustomButton
-                title="Next"
-                onPress={() => setCurrentStep(2)}
-                style={styles.nextButton}
-              />
-            ) : (
-              <View style={styles.buttonRow}>
-                <CustomButton
-                  title="Back"
-                  onPress={() => setCurrentStep(1)}
-                  variant="outline"
-                  style={styles.backButtonForm}
+            <Controller
+              control={control}
+              name="email"
+              rules={{
+                required: 'Email is required',
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: 'Please enter a valid email address',
+                },
+              }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <CustomInput
+                  label="Email Address"
+                  placeholder="Enter your email"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.email?.message}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  required
                 />
-                <CustomButton
-                  title="Create Account"
-                  onPress={handleSubmit(onSubmit)}
-                  loading={isLoading}
-                  disabled={isLoading}
-                  style={styles.submitButton}
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="phone"
+              rules={{
+                required: 'Phone number is required',
+                validate: validatePhone,
+              }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <CustomInput
+                  label="Phone Number"
+                  placeholder="Enter 10-digit phone number"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.phone?.message}
+                  keyboardType="phone-pad"
+                  required
                 />
-              </View>
-            )}
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="password"
+              rules={{
+                required: 'Password is required',
+                minLength: {
+                  value: 6,
+                  message: 'Password must be at least 6 characters',
+                },
+              }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <View style={styles.passwordContainer}>
+                  <CustomInput
+                    label="Password"
+                    placeholder="Enter your password"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    error={errors.password?.message}
+                    secureTextEntry={!showPassword}
+                    required
+                  />
+                  <TouchableOpacity
+                    style={styles.passwordToggle}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <MaterialIcons
+                      name={showPassword ? 'visibility-off' : 'visibility'}
+                      size={24}
+                      color={Colors.neutral[500]}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="confirmPassword"
+              rules={{
+                required: 'Please confirm your password',
+                validate: (value) => value === password || 'Passwords do not match',
+              }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <View style={styles.passwordContainer}>
+                  <CustomInput
+                    label="Confirm Password"
+                    placeholder="Confirm your password"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    error={errors.confirmPassword?.message}
+                    secureTextEntry={!showConfirmPassword}
+                    required
+                  />
+                  <TouchableOpacity
+                    style={styles.passwordToggle}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <MaterialIcons
+                      name={showConfirmPassword ? 'visibility-off' : 'visibility'}
+                      size={24}
+                      color={Colors.neutral[500]}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="businessName"
+              rules={{ required: 'Business name is required' }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <CustomInput
+                  label="Business Name"
+                  placeholder="Enter your business name"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.businessName?.message}
+                  required
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="gstNumber"
+              rules={{
+                required: 'GST number is required',
+                validate: validateGST,
+              }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <CustomInput
+                  label="GST Number"
+                  placeholder="Enter GST number (e.g., 22AAAAA0000A1Z5)"
+                  value={value}
+                  onChangeText={(text) => onChange(text.toUpperCase())}
+                  onBlur={onBlur}
+                  error={errors.gstNumber?.message}
+                  autoCapitalize="characters"
+                  required
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="street"
+              rules={{ required: 'Street address is required' }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <CustomInput
+                  label="Street Address"
+                  placeholder="Enter your street address"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.street?.message}
+                  required
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="city"
+              rules={{ required: 'City is required' }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <CustomInput
+                  label="City"
+                  placeholder="Enter your city"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.city?.message}
+                  required
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="state"
+              rules={{ required: 'State is required' }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <CustomInput
+                  label="State"
+                  placeholder="Enter your state"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.state?.message}
+                  required
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="pincode"
+              rules={{
+                required: 'Pincode is required',
+                validate: validatePincode,
+              }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <CustomInput
+                  label="Pincode"
+                  placeholder="Enter 6-digit pincode"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.pincode?.message}
+                  keyboardType="numeric"
+                  required
+                />
+              )}
+            />
+
+            <CustomButton
+              title="Create Account"
+              onPress={handleSubmit(onSubmit)}
+              loading={isLoading}
+              disabled={isLoading}
+              style={styles.submitButton}
+            />
           </View>
 
           {/* Footer */}
@@ -496,25 +452,6 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     textAlign: 'center',
   },
-  progressContainer: {
-    marginBottom: 24,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: Colors.neutral[200],
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Colors.primary[400],
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    textAlign: 'center',
-  },
   form: {
     marginBottom: 24,
   },
@@ -527,27 +464,8 @@ const styles = StyleSheet.create({
     top: 38,
     padding: 4,
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  halfWidth: {
-    width: '48%',
-  },
-  nextButton: {
-    marginTop: 16,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: 16,
-  },
-  backButtonForm: {
-    flex: 1,
-    marginRight: 8,
-  },
   submitButton: {
-    flex: 1,
-    marginLeft: 8,
+    marginTop: 16,
   },
   footer: {
     flexDirection: 'row',

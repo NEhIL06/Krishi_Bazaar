@@ -1,187 +1,192 @@
-import { account, databases, DATABASE_ID, COLLECTION_IDS, ID } from '../config/appwrite';
-import { User } from '../types';
+import { Account, Client, Databases, ID, Query } from "react-native-appwrite";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { User } from '../types';
+import { account, databases } from "../config/appwrite";
+import { Double } from "react-native/Libraries/Types/CodegenTypes";
+
+const appwriteConfig = {
+    endpoint: "https://fra.cloud.appwrite.io/v1",//changed
+    projectId: "688f4f530024f4b39ef6",//changed
+    platform: "com.nehil.react-native",//changed
+    databaseId: "688f5012002f53e1b1de",//changed
+    userCollectionId: "688fbb6300056efcbff0",//changed
+    storageBucketId: "688f502a003b047969d9",//changed
+    categoriesCollectionId: "688fcf55003266123ae4",
+    productsCollectionId: "688fd04200142b03e8bc",
+    reviewsCollectionId: "688fd6b4002d22dfeb93",
+    ordersCollectionId: "688fd43600046ffb7b9d",
+    messagesCollectionId: "688fd5e20033a85ba9ed",
+    farmersCollectionId: "688fd2fb003bfc7c3a15",
+  };
+  
+
 
 interface RegisterData {
-  name: string;
-  email: string;
-  password: string;
-  phone: string;
-  businessName: string;
-  gstNumber: string;
-  address: {
-    street: string;
-    city: string;
-    state: string;
-    pincode: string;
-    country: string;
-  };
-  location: {
-    latitude: number;
-    longitude: number;
-  };
+    name: string;
+    email: string;
+    password: string;
+    phone: string;
+    businessName: string;
+    gstNumber: string;
+    accountId: string;
 }
 
 interface LoginCredentials {
-  email?: string;
-  phone?: string;
-  password: string;
+    email?: string;
+    phone?: string;
+    password: string;
 }
 
 class AuthService {
-  async register(userData: RegisterData): Promise<User> {
-    try {
-      // Create account
-      const user = await account.create(
-        ID.unique(),
-        userData.email,
-        userData.password,
-        userData.name
-      );
+    async register(userData: RegisterData): Promise<User> {
+        try {
+            const newAccount = await account.create(
+                ID.unique(),
+                userData.email,
+                userData.password,
+                userData.name
+            );
 
-      // Create user document in database
-      const userDoc = await databases.createDocument(
-        DATABASE_ID as string,
-        COLLECTION_IDS.USERS,
-        ID.unique(),
-        {
-          accountId: user.$id,
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone,
-          businessName: userData.businessName,
-          gstNumber: userData.gstNumber,
-          address: userData.address,
-          location: userData.location,
-          isVerified: false,
+            if (!newAccount) throw new Error('Account creation failed');
+
+            await account.createEmailPasswordSession(userData.email, userData.password);
+
+            const userDoc = await databases.createDocument(
+                appwriteConfig.databaseId,
+                appwriteConfig.userCollectionId,
+                ID.unique(),
+                {
+                    accountId: newAccount.$id,
+                    name: userData.name,
+                    email: userData.email,
+                    phone: userData.phone,
+                    businessName: userData.businessName,
+                    gstNumber: userData.gstNumber,
+                    //address: userData.address,
+                    //location: userData.location,
+                    isVerified: false,
+                }
+            );
+
+            await AsyncStorage.setItem('user', JSON.stringify(userDoc));
+
+            return userDoc as unknown as User;
+        } catch (e) {
+            console.error('Registration error:', e);
+            throw new Error(e as string);
         }
-      );
-
-      // Create session
-      await account.createEmailPasswordSession(userData.email, userData.password);
-      
-      // Store user data locally
-      await AsyncStorage.setItem('user', JSON.stringify(userDoc));
-      
-      return userDoc as unknown as User;
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
     }
-  }
 
-  async login(credentials: LoginCredentials): Promise<User> {
-    try {
-      let session:any;
-      
-      if (credentials.email) {
-        session = await account.createEmailPasswordSession(
-          credentials.email,
-          credentials.password
-        );
-      } else {
-        throw new Error('Email or phone is required');
-      }
+    async login(credentials: LoginCredentials): Promise<User> {
+        try {
+            if (!credentials.email) {
+                throw new Error('Email is required');
+            }
 
-      // Get current user
-      const accountUser = await account.get();
-      
-      // Get user document from database
-      const userDocs = await databases.listDocuments(
-        DATABASE_ID as string,
-        COLLECTION_IDS.USERS,
-        [`accountId.equal("${accountUser.$id}")`]
-      );
+            const session = await account.createEmailPasswordSession(
+                credentials.email,
+                credentials.password
+            );
 
-      if (userDocs.documents.length === 0) {
-        throw new Error('User data not found');
-      }
+            if (!session) {
+                throw new Error('Invalid email or password');
+            }
 
-      const user = userDocs.documents[0] as unknown as User;
-      
-      // Store user data locally
-      await AsyncStorage.setItem('user', JSON.stringify(user));
-      
-      return user;
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+            const accountUser = await account.get();
+
+            const userDocs = await databases.listDocuments(
+                appwriteConfig.databaseId,
+                appwriteConfig.userCollectionId,
+                [Query.equal('accountId', accountUser.$id)]
+            );
+
+            if (!userDocs.documents.length) {
+                throw new Error('User data not found');
+            }
+
+            const user = userDocs.documents[0] as unknown as User;
+            await AsyncStorage.setItem('user', JSON.stringify(user));
+
+            return user;
+        } catch (e) {
+            console.error('Login error:', e);
+            throw new Error(e as string);
+        }
     }
-  }
 
-  async logout(): Promise<void> {
-    try {
-      await account.deleteSession('current');
-      await AsyncStorage.removeItem('user');
-    } catch (error) {
-      console.error('Logout error:', error);
-      throw error;
+    async logout(): Promise<void> {
+        try {
+            await account.deleteSession('current');
+            await AsyncStorage.removeItem('user');
+        } catch (e) {
+            console.error('Logout error:', e);
+            throw new Error(e as string);
+        }
     }
-  }
 
-  async getCurrentUser(): Promise<User | null> {
-    try {
-      // Try to get from local storage first
-      const cachedUser = await AsyncStorage.getItem('user');
-      if (cachedUser) {
-        return JSON.parse(cachedUser);
-      }
+    async getCurrentUser(): Promise<User | null> {
+        try {
+            const cachedUser = await AsyncStorage.getItem('user');
+            if (cachedUser) {
+                return JSON.parse(cachedUser);
+            }
 
-      // If not in cache, try to get from Appwrite
-      const accountUser = await account.get();
-      const userDocs = await databases.listDocuments(
-        DATABASE_ID as string,
-        COLLECTION_IDS.USERS,
-        [`accountId.equal("${accountUser.$id}")`]
-      );
+            const accountUser = await account.get();
+            if (!accountUser) return null;
 
-      if (userDocs.documents.length > 0) {
-        const user = userDocs.documents[0] as unknown as User;
-        await AsyncStorage.setItem('user', JSON.stringify(user));
-        return user;
-      }
+            const userDocs = await databases.listDocuments(
+                appwriteConfig.databaseId,
+                appwriteConfig.userCollectionId,
+                [Query.equal('accountId', accountUser.$id)]
+            );
 
-      return null;
-    } catch (error) {
-      console.error('Get current user error:', error);
-      return null;
+            if (!userDocs.documents.length) {
+                return null;
+            }
+
+            const user = userDocs.documents[0] as unknown as User;
+            await AsyncStorage.setItem('user', JSON.stringify(user));
+            return user;
+        } catch (e) {
+            console.error('Get current user error:', e);
+            return null;
+        }
     }
-  }
 
-  async sendOTP(phone: string): Promise<void> {
-    try {
-      await account.createPhoneToken(ID.unique(), phone);
-    } catch (error) {
-      console.error('Send OTP error:', error);
-      throw error;
+    async sendOTP(phone: string): Promise<void> {
+        try {
+            await account.createPhoneToken(ID.unique(), phone);
+        } catch (e) {
+            console.error('Send OTP error:', e);
+            throw new Error(e as string);
+        }
     }
-  }
 
-  async verifyOTP(userId: string, secret: string): Promise<void> {
-    try {
-      await account.createSession(userId, secret);
-    } catch (error) {
-      console.error('Verify OTP error:', error);
-      throw error;
+    async verifyOTP(userId: string, secret: string): Promise<void> {
+        try {
+            await account.createSession(userId, secret);
+        } catch (e) {
+            console.error('Verify OTP error:', e);
+            throw new Error(e as string);
+        }
     }
-  }
 
-  async updateProfile(userId: string, updates: Partial<User>): Promise<User> {
-    try {
-      const updatedUser = await databases.updateDocument(
-        DATABASE_ID as string,
-        COLLECTION_IDS.USERS,
-        userId,
-        updates
-      );
-      
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-      return updatedUser as unknown as User;
-    } catch (error) {
-      console.error('Update profile error:', error);
-      throw error;
+    async updateProfile(userId: string, updates: Partial<User>): Promise<User> {
+        try {
+            const updatedUser = await databases.updateDocument(
+                appwriteConfig.databaseId,
+                appwriteConfig.userCollectionId,
+                userId,
+                updates
+            );
+
+            await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+            return updatedUser as unknown as User;
+        } catch (e) {
+            console.error('Update profile error:', e);
+            throw new Error(e as string);
+        }
     }
-  }
 }
 
 export default new AuthService();

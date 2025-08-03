@@ -1,6 +1,23 @@
-import { ImageGravity } from 'react-native-appwrite';
-import { databases, storage, DATABASE_ID, COLLECTION_IDS, STORAGE_BUCKET_ID } from '../config/appwrite';
+import { Databases, Query, Storage, ImageGravity, Client } from 'react-native-appwrite';
 import { Product, Category } from '../types';
+import { databases, storage } from '../config/appwrite';
+
+const appwriteConfig = {
+  endpoint: "https://fra.cloud.appwrite.io/v1",//changed
+  projectId: "688f4f530024f4b39ef6",//changed
+  platform: "com.nehil.react-native",//changed
+  databaseId: "688f5012002f53e1b1de",//changed
+  userCollectionId: "688fbb6300056efcbff0",//changed
+  storageBucketId: "688f502a003b047969d9",//changed
+  categoriesCollectionId: "688fcf55003266123ae4",
+  productsCollectionId: "688fd04200142b03e8bc",
+  reviewsCollectionId: "688fd6b4002d22dfeb93",
+  ordersCollectionId: "688fd43600046ffb7b9d",
+  messagesCollectionId: "688fd5e20033a85ba9ed",
+  farmersCollectionId: "688fd2fb003bfc7c3a15",
+};
+
+
 
 interface ProductFilters {
   category?: string;
@@ -30,87 +47,88 @@ class ProductService {
     offset = 0
   ): Promise<Product[]> {
     try {
-      const queries = ['isAvailable.equal(true)'];
-      
+      const queries: string[] = [Query.equal('isAvailable', true)];
+
       if (filters?.category) {
-        queries.push(`category.equal("${filters.category}")`);
+        queries.push(Query.equal('category', filters.category));
       }
-      
+
       if (filters?.isOrganic !== undefined) {
-        queries.push(`isOrganic.equal(${filters.isOrganic})`);
+        queries.push(Query.equal('isOrganic', filters.isOrganic));
       }
-      
+
       if (filters?.priceRange) {
-        queries.push(`price.amount.greaterThanEqual(${filters.priceRange.min})`);
-        queries.push(`price.amount.lessThanEqual(${filters.priceRange.max})`);
+        queries.push(Query.greaterThanEqual('price.amount', filters.priceRange.min));
+        queries.push(Query.lessThanEqual('price.amount', filters.priceRange.max));
       }
-      
+
       if (filters?.minimumQuantity) {
-        queries.push(`availableQuantity.greaterThanEqual(${filters.minimumQuantity})`);
+        queries.push(Query.greaterThanEqual('availableQuantity', filters.minimumQuantity));
       }
 
       if (sort) {
-        const sortQuery = sort.direction === 'asc' 
-          ? `orderAsc("${sort.field}")` 
-          : `orderDesc("${sort.field}")`;
-        queries.push(sortQuery);
+        if (sort.field === 'price') {
+          queries.push(sort.direction === 'asc' ? Query.orderAsc('price.amount') : Query.orderDesc('price.amount'));
+        } else {
+          queries.push(sort.direction === 'asc' ? Query.orderAsc(sort.field) : Query.orderDesc(sort.field));
+        }
       }
 
-      queries.push(`limit(${limit})`);
-      queries.push(`offset(${offset})`);
+      queries.push(Query.limit(limit));
+      queries.push(Query.offset(offset));
 
       const response = await databases.listDocuments(
-        DATABASE_ID as string,
-        COLLECTION_IDS.PRODUCTS,
+        appwriteConfig.databaseId,
+        appwriteConfig.productsCollectionId,
         queries
       );
 
       return response.documents as unknown as Product[];
     } catch (error) {
       console.error('Get products error:', error);
-      throw error;
+      throw new Error(error as string);
     }
   }
 
   async getProductById(productId: string): Promise<Product> {
     try {
       const product = await databases.getDocument(
-        DATABASE_ID,
-        COLLECTION_IDS.PRODUCTS,
+        appwriteConfig.databaseId,
+        appwriteConfig.productsCollectionId,
         productId
       );
       return product as unknown as Product;
     } catch (error) {
       console.error('Get product error:', error);
-      throw error;
+      throw new Error(error as string);
     }
   }
 
   async getCategories(): Promise<Category[]> {
     try {
       const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_IDS.CATEGORIES,
-        ['isActive.equal(true)', 'orderAsc("name")']
+        appwriteConfig.databaseId,
+        appwriteConfig.categoriesCollectionId,
+        [Query.equal('isActive', true), Query.orderAsc('name')]
       );
       return response.documents as unknown as Category[];
     } catch (error) {
       console.error('Get categories error:', error);
-      throw error;
+      throw new Error(error as string);
     }
   }
 
   async getCategoryById(categoryId: string): Promise<Category> {
     try {
       const category = await databases.getDocument(
-        DATABASE_ID,
-        COLLECTION_IDS.CATEGORIES,
+        appwriteConfig.databaseId,
+        appwriteConfig.categoriesCollectionId,
         categoryId
       );
       return category as unknown as Category;
     } catch (error) {
       console.error('Get category error:', error);
-      throw error;
+      throw new Error(error as string);
     }
   }
 
@@ -120,51 +138,51 @@ class ProductService {
     limit = 20
   ): Promise<Product[]> {
     try {
-      const queries = [
-        'isAvailable.equal(true)',
-        `search("${query}")`,
-        `limit(${limit})`
+      const queries: string[] = [
+        Query.equal('isAvailable', true),
+        Query.search('name', query),
+        Query.limit(limit)
       ];
 
       if (filters?.category) {
-        queries.push(`category.equal("${filters.category}")`);
+        queries.push(Query.equal('category', filters.category));
       }
 
       const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_IDS.PRODUCTS,
+        appwriteConfig.databaseId,
+        appwriteConfig.productsCollectionId,
         queries
       );
 
       return response.documents as unknown as Product[];
     } catch (error) {
       console.error('Search products error:', error);
-      throw error;
+      throw new Error(error as string);
     }
   }
 
   async getFeaturedProducts(limit = 10): Promise<Product[]> {
     try {
       const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_IDS.PRODUCTS,
+        appwriteConfig.databaseId,
+        appwriteConfig.productsCollectionId,
         [
-          'isAvailable.equal(true)',
-          'orderDesc("$createdAt")',
-          `limit(${limit})`
+          Query.equal('isAvailable', true),
+          Query.orderDesc('$createdAt'),
+          Query.limit(limit)
         ]
       );
       return response.documents as unknown as Product[];
     } catch (error) {
       console.error('Get featured products error:', error);
-      throw error;
+      throw new Error(error as string);
     }
   }
 
   async getImageUrl(fileId: string): Promise<string> {
     try {
       const result = storage.getFilePreview(
-        STORAGE_BUCKET_ID,
+        appwriteConfig.storageBucketId,
         fileId,
         400, // width
         300, // height
@@ -174,25 +192,25 @@ class ProductService {
       return result.toString();
     } catch (error) {
       console.error('Get image URL error:', error);
-      throw error;
+      throw new Error(error as string);
     }
   }
 
   async getProductsByFarmer(farmerId: string): Promise<Product[]> {
     try {
       const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_IDS.PRODUCTS,
+        appwriteConfig.databaseId,
+        appwriteConfig.productsCollectionId,
         [
-          `farmer.equal("${farmerId}")`,
-          'isAvailable.equal(true)',
-          'orderDesc("$createdAt")'
+          Query.equal('farmer', farmerId),
+          Query.equal('isAvailable', true),
+          Query.orderDesc('$createdAt')
         ]
       );
       return response.documents as unknown as Product[];
     } catch (error) {
       console.error('Get products by farmer error:', error);
-      throw error;
+      throw new Error(error as string);
     }
   }
 }

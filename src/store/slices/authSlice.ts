@@ -16,6 +16,17 @@ const initialState: AuthState = {
   error: null,
 };
 
+
+interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  businessName: string;
+  gstNumber: string;
+  accountId: string;
+}
+
 // Async thunks
 export const login = createAsyncThunk(
   'auth/login',
@@ -26,7 +37,7 @@ export const login = createAsyncThunk(
 
 export const register = createAsyncThunk(
   'auth/register',
-  async (userData: any) => {
+  async (userData: RegisterData) => {
     return await AuthService.register(userData);
   }
 );

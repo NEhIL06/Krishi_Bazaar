@@ -125,7 +125,7 @@ const OrdersPage: React.FC = () => {
           <Text style={styles.deliveryDate}>
             Expected: {formatDate(item.expectedDeliveryDate)}
           </Text>
-        )}
+       )}
       </View>
 
       {item.trackingNumber && (

@@ -1,3 +1,5 @@
+import { Double } from "react-native/Libraries/Types/CodegenTypes";
+
 export interface User {
   $id: string;
   $createdAt: string;
@@ -7,17 +9,11 @@ export interface User {
   phone: string;
   businessName: string;
   gstNumber: string;
-  address: {
-    street: string;
-    city: string;
-    state: string;
-    pincode: string;
-    country: string;
-  };
-  location: {
-    latitude: number;
-    longitude: number;
-  };
+  street: string;
+  city: string;
+  state: string;
+  pincode: string;
+  country: "India";
   isVerified: boolean;
   profileImage?: string;
 }
@@ -43,11 +39,7 @@ export interface Product {
   category: string;
   farmer: string;
   images: string[];
-  price: {
-    amount: number;
-    unit: string;
-    currency: string;
-  };
+  price: Double;
   minimumQuantity: number;
   availableQuantity: number;
   variety: string;
@@ -56,12 +48,8 @@ export interface Product {
   expiryDate: string;
   storageConditions: string;
   isOrganic: boolean;
-  certifications: string[];
-  location: {
-    latitude: number;
-    longitude: number;
-    address: string;
-  };
+  city: string;
+  state: string;
   deliveryTimeframe: string;
   isAvailable: boolean;
 }
@@ -73,19 +61,12 @@ export interface Farmer {
   phone?: string;
   email?: string;
   farmName: string;
-  address: {
     street: string;
     city: string;
     state: string;
     pincode: string;
-  };
-  location: {
-    latitude: number;
-    longitude: number;
-  };
   profileImage?: string;
   farmImages: string[];
-  experience: number;
   rating: number;
   totalReviews: number;
   isVerified: boolean;
@@ -101,12 +82,10 @@ export interface Order {
   quantity: number;
   totalAmount: number;
   status: 'pending' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled';
-  deliveryAddress: {
-    street: string;
-    city: string;
-    state: string;
-    pincode: string;
-  };
+  delivery_street: string;
+  delivery_city: string;
+  delivery_state: string;
+  delivery_pincode: string;
   expectedDeliveryDate: string;
   actualDeliveryDate?: string;
   trackingNumber?: string;
