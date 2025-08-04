@@ -3,10 +3,10 @@ import { Product, Category } from '../types';
 import { databases, storage } from '../config/appwrite';
 
 const appwriteConfig = {
-  endpoint: "https://fra.cloud.appwrite.io/v1",//changed
-  projectId: "688f4f530024f4b39ef6",//changed
-  platform: "com.nehil.react-native",//changed
-  databaseId: "688f5012002f53e1b1de",//changed
+  endpoint: "",//changed
+  projectId: "",//changed
+  platform: "",//changed
+  databaseId: "",//changed
   userCollectionId: "688fbb6300056efcbff0",//changed
   storageBucketId: "688f502a003b047969d9",//changed
   categoriesCollectionId: "688fcf55003266123ae4",
