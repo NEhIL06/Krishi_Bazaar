@@ -18,13 +18,21 @@ const initialState: AuthState = {
 
 
 interface RegisterData {
+  accountId: string;
   name: string;
   email: string;
-  password: string;
   phone: string;
   businessName: string;
   gstNumber: string;
-  accountId: string;
+  street: string;
+  city: string;
+  state: string;
+  pincode: string;
+  address?: string;
+  isVerified: boolean;
+  profileImage?: string;
+  password: string;
+  country: string;
 }
 
 // Async thunks

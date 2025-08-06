@@ -44,11 +44,11 @@ const DeliveryAddressesPage: React.FC = () => {
   useEffect(() => {
     if (user?.address) {
       reset({
-        street: user.address.street || '',
-        city: user.address.city || '',
-        state: user.address.state || '',
-        pincode: user.address.pincode || '',
-        country: user.address.country || 'India',
+        street: user.street || '',
+        city: user.city || '',
+        state: user.state || '',
+        pincode: user.pincode || '',
+        country: user.country || 'India',
       });
     }
   }, [user, reset]);
@@ -66,13 +66,11 @@ const DeliveryAddressesPage: React.FC = () => {
       await dispatch(updateProfile({
         userId: user.$id,
         updates: {
-          address: {
             street: data.street,
             city: data.city,
             state: data.state,
             pincode: data.pincode,
-            country: data.country,
-          }
+            country: "India",
         }
       })).unwrap();
 

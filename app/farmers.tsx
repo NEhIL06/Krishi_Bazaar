@@ -121,7 +121,7 @@ const FarmersPage: React.FC = () => {
             <View style={styles.locationRow}>
               <MaterialIcons name="location-on" size={16} color={Colors.neutral[500]} />
               <Text style={styles.location}>
-                {item.address.city}, {item.address.state}
+                {item.city}, {item.state}
               </Text>
             </View>
           </View>
@@ -130,13 +130,6 @@ const FarmersPage: React.FC = () => {
             <MaterialIcons name="star" size={16} color={Colors.warning[500]} />
             <Text style={styles.rating}>{item.rating.toFixed(1)}</Text>
             <Text style={styles.reviewCount}>({item.totalReviews})</Text>
-          </View>
-        </View>
-
-        <View style={styles.farmerDetails}>
-          <View style={styles.experienceContainer}>
-            <MaterialIcons name="work" size={16} color={Colors.primary[400]} />
-            <Text style={styles.experience}>{item.experience} years experience</Text>
           </View>
         </View>
 

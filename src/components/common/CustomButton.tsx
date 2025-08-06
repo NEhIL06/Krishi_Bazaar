@@ -24,7 +24,7 @@ const CustomButton: React.FC<CustomButtonProps> = ({
   textStyle,
 }) => {
   const getButtonStyle = () => {
-    const baseStyle = [styles.button, styles[size]];
+    const baseStyle: ViewStyle[] = [styles.button, styles[size]];
     
     switch (variant) {
       case 'primary':
@@ -49,7 +49,7 @@ const CustomButton: React.FC<CustomButtonProps> = ({
   };
 
   const getTextStyle = () => {
-    const baseStyle = [styles.text];
+    const baseStyle: TextStyle[] = [styles.text];
     
     switch (variant) {
       case 'primary':
@@ -111,23 +111,39 @@ const styles = StyleSheet.create({
   // Variants
   primary: {
     backgroundColor: Colors.primary[400],
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   secondary: {
     backgroundColor: Colors.secondary[500],
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   outline: {
     backgroundColor: Colors.transparent,
     borderWidth: 1,
     borderColor: Colors.primary[400],
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   ghost: {
     backgroundColor: Colors.transparent,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   
   // Disabled state
   disabled: {
     backgroundColor: Colors.neutral[300],
     borderColor: Colors.neutral[300],
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   
   // Text styles
@@ -136,18 +152,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   primaryText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: Colors.white,
   },
   secondaryText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: Colors.white,
   },
   outlineText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: Colors.primary[400],
   },
   ghostText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: Colors.primary[400],
   },
   disabledText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: Colors.neutral[500],
   },
 });

@@ -319,11 +319,11 @@ const OrderDetailPage: React.FC = () => {
           <View style={styles.addressCard}>
             <MaterialIcons name="location-on" size={20} color={Colors.primary[400]} />
             <View style={styles.addressText}>
-              <Text style={styles.addressLine}>{selectedOrder.deliveryAddress.street}</Text>
+              
               <Text style={styles.addressLine}>
-                {selectedOrder.deliveryAddress.city}, {selectedOrder.deliveryAddress.state}
+                {selectedOrder.delivery_city}, {selectedOrder.delivery_state}
               </Text>
-              <Text style={styles.addressLine}>{selectedOrder.deliveryAddress.pincode}</Text>
+              <Text style={styles.addressLine}>{selectedOrder.delivery_pincode}</Text>
             </View>
           </View>
         </View>

@@ -4,9 +4,9 @@ import { Client, Account, Databases, Storage, Functions, ID } from 'react-native
 const client = new Client();
 
 client
-  .setEndpoint(process.env.APPWRITE_ENDPOINT!)
-  .setProject(process.env.APPWRITE_PROJECT_ID!)
-  .setPlatform(process.env.APPWRITE_PLATFORM!);
+  .setEndpoint("https://fra.cloud.appwrite.io/v1")
+  .setProject("688f4f530024f4b39ef6")
+  .setPlatform("com.nehil.react-native");
 
 // Initialize services
 export const account = new Account(client);

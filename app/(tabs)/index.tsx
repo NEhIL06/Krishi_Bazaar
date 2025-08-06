@@ -36,26 +36,30 @@ const HomePage: React.FC = () => {
     featuredProducts, 
     categories, 
     isLoading, 
-    error, 
-    searchQuery 
-  } = useSelector((state: RootState) => state.products);
-  const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
+    error
+  } = useSelector((state: RootState) => state.products || {});
+  const { user = null } = useSelector((state: RootState) => state.auth || {});
   
   const [refreshing, setRefreshing] = useState(false);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
 
+  console.log('HomePage: Rendering with user:', user);
+
   useEffect(() => {
+    console.log('HomePage: useEffect triggered, loading initial data');
     loadInitialData();
   }, []);
 
   const loadInitialData = async () => {
     try {
+      console.log('HomePage: Loading featured products and categories');
       await Promise.all([
-        dispatch(fetchFeaturedProducts(10)),
-        dispatch(fetchCategories()),
+        dispatch(fetchFeaturedProducts()),
+        dispatch(fetchCategories())
       ]);
+      console.log('HomePage: Initial data loaded successfully');
     } catch (error) {
-      console.error('Failed to load initial data:', error);
+      console.error('HomePage: Error loading initial data:', error);
     }
   };
 
@@ -118,7 +122,7 @@ const HomePage: React.FC = () => {
           <View style={styles.headerTop}>
             <View>
               <Text style={styles.greeting}>
-                नमस्ते, {user?.name.split(' ')[0] || 'Buyer'}!
+                नमस्ते, {(user?.name || '').split(' ')[0] || 'किसान'}! 🙏
               </Text>
               <Text style={styles.subGreeting}>Find fresh produce directly from farmers</Text>
             </View>
@@ -163,7 +167,7 @@ const HomePage: React.FC = () => {
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
-          <Button title="Categories" onPress={seed} />
+          
           {categories.length > 0 ? (
             <FlatList
               horizontal
@@ -177,7 +181,7 @@ const HomePage: React.FC = () => {
             isLoading ? <LoadingSpinner /> : null
           )}
         </View>
-
+        <Button title='seed' onPress={seed} />
         {/* Featured Products Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>

@@ -1,5 +1,5 @@
 import { ID } from 'react-native-appwrite';
-import { databases, storage } from '../config/appwrite'; // Import from your client file
+import { databases, storage } from '../config/appwrite';
 import sampleData from './sampleData';
 
 const appwriteConfig = {
@@ -18,14 +18,19 @@ const appwriteConfig = {
 };
 
 interface Category {
+  $id: string;
+  $createdAt: string;
   name: string;
   nameHindi: string;
   description: string;
   imageUrl: string;
   isActive: boolean;
+  parentCategory?: string;
 }
 
 interface Farmer {
+  $id: string;
+  $createdAt: string;
   name: string;
   phone?: string;
   email?: string;
@@ -42,11 +47,14 @@ interface Farmer {
 }
 
 interface Product {
+  $id: string;
+  $createdAt: string;
+  $updatedAt: string;
   name: string;
   nameHindi: string;
   description: string;
-  category_name: string;
-  farmer_name: string;
+  category: string;
+  farmer: string;
   images: string[];
   price: number;
   minimumQuantity: number;
@@ -57,16 +65,21 @@ interface Product {
   expiryDate: string;
   storageConditions: string;
   isOrganic: boolean;
-  city: string;
   state: string;
+  city: string;
   deliveryTimeframe: string;
   isAvailable: boolean;
+  category_name?: string; // Added for mapping
+  farmer_name?: string; // Added for mapping
 }
 
 interface Order {
-  buyer_id: string;
-  farmer_name: string;
-  product_name: string;
+  $id: string;
+  $createdAt: string;
+  $updatedAt: string;
+  buyer: string;
+  farmer: string;
+  product: string;
   quantity: number;
   totalAmount: number;
   status: 'pending' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled';
@@ -75,28 +88,35 @@ interface Order {
   delivery_state: string;
   delivery_pincode: string;
   expectedDeliveryDate: string;
+  actualDeliveryDate?: string;
+  trackingNumber?: string;
   paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
   notes?: string;
 }
 
 interface Message {
-  sender_id: string;
-  receiver_id: string;
+  $id: string;
+  $createdAt: string;
+  sender: string;
+  receiver: string;
   content: string;
   messageType: 'text' | 'image' | 'document';
+  fileUrl: string;
   isRead: boolean;
-  order_product_name: string;
+  orderId: string;
 }
 
 interface Review {
-  buyer_id: string;
-  farmer_name: string;
-  product_name: string;
-  order_product_name: string;
+  $id: string;
+  $createdAt: string;
+  buyer: string;
+  farmer: string;
+  product: string;
+  order: string;
   rating: number;
   title: string;
   comment: string;
-  images: string[];
+  images?: string[];
   isVerified: boolean;
 }
 
@@ -114,13 +134,13 @@ const data = sampleData as SampleData;
 async function clearAll(collectionId: string): Promise<void> {
   try {
     const list = await databases.listDocuments(appwriteConfig.databaseId, collectionId);
-    console.log("docs to delete",list.documents.length);
+    console.log(`Documents to delete in ${collectionId}: ${list.documents.length}`);
     await Promise.all(
       list.documents.map((doc) =>
         databases.deleteDocument(appwriteConfig.databaseId, collectionId, doc.$id)
       )
     );
-    console.log("collection cleared");
+    console.log(`Collection ${collectionId} cleared`);
   } catch (error) {
     console.error(`Error clearing collection ${collectionId}:`, error);
     throw new Error(error as string);
@@ -130,13 +150,13 @@ async function clearAll(collectionId: string): Promise<void> {
 async function clearStorage(): Promise<void> {
   try {
     const list = await storage.listFiles(appwriteConfig.storageBucketId);
-    console.log("files to delete",list.files.length);
+    console.log(`Files to delete: ${list.files.length}`);
     await Promise.all(
       list.files.map((file) =>
         storage.deleteFile(appwriteConfig.storageBucketId, file.$id)
       )
     );
-    console.log("storage cleared");
+    console.log("Storage cleared");
   } catch (error) {
     console.error('Error clearing storage:', error);
     throw new Error(error as string);
@@ -147,23 +167,23 @@ async function uploadImageToStorage(imageUrl: string): Promise<string> {
   try {
     const response = await fetch(imageUrl);
     if (!response.ok) throw new Error(`Failed to fetch image: ${imageUrl}`);
-    console.log("fetched",imageUrl);
+    console.log(`Fetched image: ${imageUrl}`);
     const blob = await response.blob();
-    const fileName = imageUrl.split('/').pop() || `image-${Date.now()}.jpg`;
-    console.log("file name",fileName);
+    //const fileName = imageUrl.split('/').pop() || `image-${Date.now()}.jpg`;
+    //console.log(`File name: ${fileName}`);
     const fileObj = {
-      name: fileName,
-      type: blob.type || 'image/jpeg',
+      name: imageUrl.split("/").pop() || `file-${Date.now()}.jpg`,
+      type:'image/jpeg',
       size: blob.size,
       uri: imageUrl,
     };
-    console.log("fileobj created");
+    console.log("File object created :",fileObj);
     const file = await storage.createFile(
       appwriteConfig.storageBucketId,
       ID.unique(),
       fileObj
     );
-    console.log("file created");
+    console.log(`File created: ${file.$id}`);
     return storage.getFileView(appwriteConfig.storageBucketId, file.$id).toString();
   } catch (error) {
     console.error(`Error uploading image ${imageUrl}:`, error);
@@ -183,7 +203,8 @@ async function seed(): Promise<void> {
       clearAll(appwriteConfig.reviewsCollectionId),
       clearStorage(),
     ]);
-    console.log("cleared");
+    console.log("All collections and storage cleared");
+
     // 2. Create Categories
     const categoryMap: Record<string, string> = {};
     for (const cat of data.categories) {
@@ -196,22 +217,24 @@ async function seed(): Promise<void> {
           name: cat.name,
           nameHindi: cat.nameHindi,
           description: cat.description,
-          imageUrl,
+          imageUrl:imageUrl,
           isActive: cat.isActive,
-          parentCategory: null, // No parent categories in sample data
+          parentCategory: cat.parentCategory || undefined,
         }
       );
       categoryMap[cat.name] = doc.$id;
     }
-    console.log("categories created");
+    console.log("Categories created");
 
     // 3. Create Farmers
     const farmerMap: Record<string, string> = {};
     for (const farmer of data.farmers) {
       const profileImage = farmer.profileImage ? await uploadImageToStorage(farmer.profileImage) : undefined;
-      const farmImages = await Promise.all(
+      let farmImages;
+      if(farmer.farmImages) {
+        farmImages = await Promise.all(
         farmer.farmImages.map((url) => uploadImageToStorage(url))
-      );
+      )};
       const doc = await databases.createDocument(
         appwriteConfig.databaseId,
         appwriteConfig.farmersCollectionId,
@@ -225,8 +248,8 @@ async function seed(): Promise<void> {
           city: farmer.city,
           state: farmer.state,
           pincode: farmer.pincode,
-          profileImage,
-          farmImages,
+          profileImage:profileImage,
+          farmImages:farmImages,
           rating: farmer.rating,
           totalReviews: farmer.totalReviews,
           isVerified: farmer.isVerified,
@@ -234,11 +257,14 @@ async function seed(): Promise<void> {
       );
       farmerMap[farmer.name] = doc.$id;
     }
-    console.log("farmers created");
+    console.log("Farmers created");
+
     // 4. Create Products
     const productMap: Record<string, string> = {};
     for (const product of data.products) {
-      const images = await Promise.all(
+      let images;
+      if(product.images) {
+        images = await Promise.all(
         product.images.map((url) => uploadImageToStorage(url))
       );
       const doc = await databases.createDocument(
@@ -249,9 +275,9 @@ async function seed(): Promise<void> {
           name: product.name,
           nameHindi: product.nameHindi,
           description: product.description,
-          category: categoryMap[product.category_name],
-          farmer: farmerMap[product.farmer_name],
-          images,
+          category: product.name,
+          farmer: product.name,
+          images:images,
           price: product.price,
           minimumQuantity: product.minimumQuantity,
           availableQuantity: product.availableQuantity,
@@ -269,7 +295,8 @@ async function seed(): Promise<void> {
       );
       productMap[product.name] = doc.$id;
     }
-    console.log("products created");
+    }
+    console.log("Products created");
 
     // 5. Create Orders
     const orderMap: Record<string, string> = {};
@@ -279,9 +306,9 @@ async function seed(): Promise<void> {
         appwriteConfig.ordersCollectionId,
         ID.unique(),
         {
-          buyer: order.buyer_id, // Placeholder, replace with actual User.$id
-          farmer: farmerMap[order.farmer_name],
-          product: productMap[order.product_name],
+          buyer: order.buyer,
+          farmer: order.farmer,
+          product: order.product,
           quantity: order.quantity,
           totalAmount: order.totalAmount,
           status: order.status,
@@ -290,44 +317,53 @@ async function seed(): Promise<void> {
           delivery_state: order.delivery_state,
           delivery_pincode: order.delivery_pincode,
           expectedDeliveryDate: order.expectedDeliveryDate,
+          actualDeliveryDate: order.actualDeliveryDate || undefined,
+          trackingNumber: order.trackingNumber || undefined,
           paymentStatus: order.paymentStatus,
-          notes: order.notes,
+          notes: order.notes || undefined,
         }
       );
-      orderMap[order.product_name] = doc.$id;
+      orderMap[order.product] = doc.$id;
     }
-    console.log("orders created");
+    console.log("Orders created");
+
     // 6. Create Messages
     for (const message of data.messages) {
+      let fileUrl = message.fileUrl;
+      if (message.messageType === 'image' || message.messageType === 'document') {
+        fileUrl = await uploadImageToStorage(message.fileUrl);
+      }
       await databases.createDocument(
         appwriteConfig.databaseId,
         appwriteConfig.messagesCollectionId,
         ID.unique(),
         {
-          sender: message.sender_id, // Placeholder, replace with actual User.$id
-          receiver: farmerMap[message.receiver_id] || message.receiver_id, // Handle farmer or user ID
+          sender: message.sender,
+          receiver: message.receiver,
           content: message.content,
           messageType: message.messageType,
+          fileUrl: fileUrl,
           isRead: message.isRead,
-          orderId: orderMap[message.order_product_name],
+          orderId: message.orderId,
         }
       );
     }
-    console.log("messages created");
+    console.log("Messages created");
+
     // 7. Create Reviews
     for (const review of data.reviews) {
-      const images = await Promise.all(
-        review.images.map((url) => uploadImageToStorage(url))
-      );
+      const images = review.images
+        ? await Promise.all(review.images.map((url) => uploadImageToStorage(url)))
+        : [];
       await databases.createDocument(
         appwriteConfig.databaseId,
         appwriteConfig.reviewsCollectionId,
         ID.unique(),
         {
-          buyer: review.buyer_id, // Placeholder, replace with actual User.$id
-          farmer: farmerMap[review.farmer_name],
-          product: productMap[review.product_name],
-          order: orderMap[review.order_product_name],
+          buyer: review.buyer,
+          farmer: review.farmer,
+          product: review.product,
+          order: review.order,
           rating: review.rating,
           title: review.title,
           comment: review.comment,
@@ -336,7 +372,8 @@ async function seed(): Promise<void> {
         }
       );
     }
-    console.log("reviews created");
+    console.log("Reviews created");
+
     console.log('✅ Seeding complete.');
   } catch (error) {
     console.error('Seeding error:', error);

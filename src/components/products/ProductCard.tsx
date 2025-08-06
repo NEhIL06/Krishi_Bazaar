@@ -33,7 +33,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, style }) =>
   }, [product.images]);
 
   const formatPrice = (price: Product['price']) => {
-    return `₹${price.amount}/${price.unit}`;
+    return `₹${price}`;
   };
 
   return (
@@ -71,14 +71,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, style }) =>
         <View style={styles.quantityRow}>
           <MaterialIcons name="inventory" size={16} color={Colors.neutral[500]} />
           <Text style={styles.quantity}>
-            {product.availableQuantity} {product.price.unit} available
+            {product.availableQuantity} {product.price} available
           </Text>
         </View>
         
         <View style={styles.locationRow}>
           <MaterialIcons name="location-on" size={16} color={Colors.neutral[500]} />
           <Text style={styles.location} numberOfLines={1}>
-            {product.location.address}
+            {product.city}, {product.state}
           </Text>
         </View>
       </View>

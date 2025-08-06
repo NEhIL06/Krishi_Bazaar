@@ -28,7 +28,12 @@ interface RegisterData {
     phone: string;
     businessName: string;
     gstNumber: string;
-    accountId: string;
+    street: string;
+    city: string;
+    state: string;
+    pincode: string;
+    address?: string;
+    country: string;
 }
 
 interface LoginCredentials {
@@ -62,8 +67,12 @@ class AuthService {
                     phone: userData.phone,
                     businessName: userData.businessName,
                     gstNumber: userData.gstNumber,
-                    //address: userData.address,
-                    //location: userData.location,
+                    street: userData.street,
+                    city: userData.city,
+                    state: userData.state,
+                    pincode: userData.pincode,
+                    address: userData.address,
+                    password: userData.password,
                     isVerified: false,
                 }
             );

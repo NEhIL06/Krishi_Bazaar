@@ -1,9 +1,8 @@
-import { Double } from "react-native/Libraries/Types/CodegenTypes";
-
 export interface User {
   $id: string;
   $createdAt: string;
   $updatedAt: string;
+  accountId: string;
   name: string;
   email: string;
   phone: string;
@@ -13,9 +12,11 @@ export interface User {
   city: string;
   state: string;
   pincode: string;
-  country: "India";
+  address?: string;
   isVerified: boolean;
   profileImage?: string;
+  password: string;
+  country: string;
 }
 
 export interface Category {
@@ -39,7 +40,7 @@ export interface Product {
   category: string;
   farmer: string;
   images: string[];
-  price: Double;
+  price: number;
   minimumQuantity: number;
   availableQuantity: number;
   variety: string;
@@ -48,8 +49,8 @@ export interface Product {
   expiryDate: string;
   storageConditions: string;
   isOrganic: boolean;
-  city: string;
   state: string;
+  city: string;
   deliveryTimeframe: string;
   isAvailable: boolean;
 }
@@ -61,11 +62,11 @@ export interface Farmer {
   phone?: string;
   email?: string;
   farmName: string;
-    street: string;
-    city: string;
-    state: string;
-    pincode: string;
-  profileImage?: string;
+  street: string;
+  city: string;
+  state: string;
+  pincode: string;
+  profileImage: string;
   farmImages: string[];
   rating: number;
   totalReviews: number;
@@ -100,9 +101,9 @@ export interface Message {
   receiver: string;
   content: string;
   messageType: 'text' | 'image' | 'document';
-  fileUrl?: string;
+  fileUrl: string;
   isRead: boolean;
-  orderId?: string;
+  orderId: string;
 }
 
 export interface Review {

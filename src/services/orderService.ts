@@ -1,3 +1,4 @@
+import { Query } from 'react-native-appwrite';
 import { databases, DATABASE_ID, COLLECTION_IDS, ID } from '../config/appwrite';
 import { Order } from '../types';
 
@@ -7,12 +8,10 @@ interface CreateOrderData {
   product: string;
   quantity: number;
   totalAmount: number;
-  deliveryAddress: {
-    street: string;
-    city: string;
-    state: string;
-    pincode: string;
-  };
+  delivery_street: string;
+  delivery_city: string;
+  delivery_state: string;
+  delivery_pincode: string;
   expectedDeliveryDate: string;
   notes?: string;
 }
@@ -21,7 +20,7 @@ class OrderService {
   async createOrder(orderData: CreateOrderData): Promise<Order> {
     try {
       const order = await databases.createDocument(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.ORDERS,
         ID.unique(),
         {
@@ -30,7 +29,7 @@ class OrderService {
           paymentStatus: 'pending',
         }
       );
-      return order as unknown as Order;
+      return order.documents[0] as Order;
     } catch (error) {
       console.error('Create order error:', error);
       throw error;
@@ -40,11 +39,11 @@ class OrderService {
   async getOrdersByBuyer(buyerId: string): Promise<Order[]> {
     try {
       const response = await databases.listDocuments(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.ORDERS,
         [
-          `buyer.equal("${buyerId}")`,
-          'orderDesc("$createdAt")'
+          Query.equal('buyer', buyerId),
+          Query.orderDesc('$createdAt')
         ]
       );
       return response.documents as unknown as Order[];
@@ -57,11 +56,11 @@ class OrderService {
   async getOrderById(orderId: string): Promise<Order> {
     try {
       const order = await databases.getDocument(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.ORDERS,
         orderId
       );
-      return order as unknown as Order;
+      return order.documents[0] as Order;
     } catch (error) {
       console.error('Get order error:', error);
       throw error;
@@ -83,12 +82,13 @@ class OrderService {
       }
 
       const order = await databases.updateDocument(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.ORDERS,
         orderId,
         updateData
       );
-      return order as unknown as Order;
+      console.log(order.documents[0]);
+      return order.documents[0] as Order;
     } catch (error) {
       console.error('Update order status error:', error);
       throw error;
@@ -98,7 +98,7 @@ class OrderService {
   async cancelOrder(orderId: string, reason?: string): Promise<Order> {
     try {
       const order = await databases.updateDocument(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.ORDERS,
         orderId,
         {
@@ -106,7 +106,8 @@ class OrderService {
           notes: reason || 'Order cancelled by buyer'
         }
       );
-      return order as unknown as Order;
+
+      return order.documents[0] as Order;
     } catch (error) {
       console.error('Cancel order error:', error);
       throw error;
@@ -132,7 +133,7 @@ class OrderService {
       }
 
       const response = await databases.listDocuments(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.ORDERS,
         queries
       );
@@ -149,7 +150,7 @@ class OrderService {
   ): Promise<Order> {
     try {
       const order = await databases.updateDocument(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.ORDERS,
         orderId,
         { paymentStatus }

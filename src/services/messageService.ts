@@ -1,18 +1,19 @@
+import { Query } from 'react-native-appwrite';
 import { databases, DATABASE_ID, COLLECTION_IDS, ID, client } from '../config/appwrite';
 import { Message } from '../types';
-
+ 
 class MessageService {
   async sendMessage(
     senderId: string,
     receiverId: string,
     content: string,
     messageType: Message['messageType'] = 'text',
-    fileUrl?: string,
-    orderId?: string
+    fileUrl: string = '',
+    orderId: string = ''
   ): Promise<Message> {
     try {
       const message = await databases.createDocument(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.MESSAGES,
         ID.unique(),
         {
@@ -25,7 +26,7 @@ class MessageService {
           isRead: false,
         }
       );
-      return message as unknown as Message;
+      return message.documents[0] as Message;
     } catch (error) {
       console.error('Send message error:', error);
       throw error;
@@ -40,26 +41,26 @@ class MessageService {
   ): Promise<Message[]> {
     try {
       const response = await databases.listDocuments(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.MESSAGES,
         [
-          `sender.equal("${userId}")`,
-          `receiver.equal("${otherUserId}")`,
-          'orderAsc("$createdAt")',
-          `limit(${limit})`,
-          `offset(${offset})`
+          Query.equal('sender', userId),
+          Query.equal('receiver', otherUserId),
+          Query.orderAsc('$createdAt'),
+          Query.limit(limit),
+          Query.offset(offset)
         ]
       );
 
       const response2 = await databases.listDocuments(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.MESSAGES,
         [
-          `sender.equal("${otherUserId}")`,
-          `receiver.equal("${userId}")`,
-          'orderAsc("$createdAt")',
-          `limit(${limit})`,
-          `offset(${offset})`
+          Query.equal('sender', otherUserId),
+          Query.equal('receiver', userId),
+          Query.orderAsc('$createdAt'),
+          Query.limit(limit),
+          Query.offset(offset)
         ]
       );
 
@@ -68,6 +69,7 @@ class MessageService {
         new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime()
       );
 
+      console.log(sortedMessages);
       return sortedMessages as unknown as Message[];
     } catch (error) {
       console.error('Get messages error:', error);
@@ -78,7 +80,7 @@ class MessageService {
   async markAsRead(messageId: string): Promise<void> {
     try {
       await databases.updateDocument(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.MESSAGES,
         messageId,
         { isRead: true }
@@ -93,15 +95,15 @@ class MessageService {
     try {
       // Get all messages where user is sender or receiver
       const sentResponse = await databases.listDocuments(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.MESSAGES,
-        [`sender.equal("${userId}")`]
+        [Query.equal('sender', userId)]
       );
 
       const receivedResponse = await databases.listDocuments(
-        DATABASE_ID as string,
+        DATABASE_ID!,
         COLLECTION_IDS.MESSAGES,
-        [`receiver.equal("${userId}")`]
+        [Query.equal('receiver', userId)]
       );
 
       const allMessages = [...sentResponse.documents, ...receivedResponse.documents];
@@ -137,7 +139,7 @@ class MessageService {
     callback: (message: Message) => void
   ): () => void {
     const unsubscribe = client.subscribe(
-      `databases.${DATABASE_ID}.collections.${COLLECTION_IDS.MESSAGES}.documents`,
+      `databases.${DATABASE_ID}.collections.${COLLECTION_IDS.MESSAGES}.documents`, // see the official documentation for more info
       (response) => {
         const message = response.payload as Message;
         if (message.receiver === userId || message.sender === userId) {

@@ -67,11 +67,11 @@ const ProductDetailPage: React.FC = () => {
 
     if (!selectedProduct) return;
 
-    const totalAmount = selectedProduct.price.amount * quantity;
+    const totalAmount = selectedProduct.price * quantity;
     
     Alert.alert(
       'Confirm Order',
-      `Order ${quantity} ${selectedProduct.price.unit} of ${selectedProduct.name} for ${formatPrice({ amount: totalAmount, unit: 'total' })}?`,
+      `Order ${quantity} ${selectedProduct.price} of ${selectedProduct.name} for ${formatPrice({ amount: totalAmount, unit: 'total' })}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -83,12 +83,10 @@ const ProductDetailPage: React.FC = () => {
                 farmer: selectedProduct.farmer,
                 quantity: quantity,
                 totalAmount: totalAmount,
-                deliveryAddress: {
-                    street: '',
-                    city: '',
-                    state: '',
-                    pincode: ''
-                },
+                delivery_street: '',  
+                delivery_city: '',
+                delivery_state: '', 
+                delivery_pincode: '',
                 expectedDeliveryDate: ''
             })
 
@@ -223,7 +221,7 @@ const ProductDetailPage: React.FC = () => {
           <View style={styles.priceContainer}>
             <Text style={styles.price}>{formatPrice(selectedProduct.price)}</Text>
             <Text style={styles.minimumOrder}>
-              Min. order: {selectedProduct.minimumQuantity} {selectedProduct.price.unit}
+              Min. order: {selectedProduct.minimumQuantity} {selectedProduct.price}
             </Text>
           </View>
 
@@ -231,7 +229,7 @@ const ProductDetailPage: React.FC = () => {
           <View style={styles.availabilityContainer}>
             <MaterialIcons name="inventory" size={20} color={Colors.success[500]} />
             <Text style={styles.availabilityText}>
-              {selectedProduct.availableQuantity} {selectedProduct.price.unit} available
+              {selectedProduct.availableQuantity} {selectedProduct.price} available
             </Text>
           </View>
 
@@ -260,27 +258,12 @@ const ProductDetailPage: React.FC = () => {
             </View>
           </View>
 
-          {/* Certifications */}
-          {selectedProduct.certifications.length > 0 && (
-            <View style={styles.certificationsContainer}>
-              <Text style={styles.sectionTitle}>Certifications</Text>
-              <View style={styles.certificationsList}>
-                {selectedProduct.certifications.map((cert, index) => (
-                  <View key={index} style={styles.certificationBadge}>
-                    <MaterialIcons name="verified" size={16} color={Colors.success[500]} />
-                    <Text style={styles.certificationText}>{cert}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
           {/* Location */}
           <View style={styles.locationContainer}>
             <Text style={styles.sectionTitle}>Location</Text>
             <View style={styles.locationRow}>
               <MaterialIcons name="location-on" size={20} color={Colors.primary[400]} />
-              <Text style={styles.locationText}>{selectedProduct.location.address}</Text>
+              <Text style={styles.locationText}>{selectedProduct.city}, {selectedProduct.state}</Text>
             </View>
           </View>
 
@@ -295,7 +278,7 @@ const ProductDetailPage: React.FC = () => {
                 <MaterialIcons name="remove" size={24} color={Colors.primary[400]} />
               </TouchableOpacity>
               <Text style={styles.quantityText}>
-                {quantity} {selectedProduct.price.unit}
+                {quantity} {selectedProduct.price}
               </Text>
               <TouchableOpacity
                 style={styles.quantityButton}
@@ -305,7 +288,7 @@ const ProductDetailPage: React.FC = () => {
               </TouchableOpacity>
             </View>
             <Text style={styles.totalPrice}>
-              Total: {formatPrice({ amount: selectedProduct.price.amount * quantity, unit: 'total' })}
+              Total: {formatPrice({ amount: selectedProduct.price * quantity, unit: 'total' })}
             </Text>
           </View>
         </View>
