@@ -15,6 +15,7 @@ interface ProductState {
     priceRange?: { min: number; max: number };
     isOrganic?: boolean;
     location?: { latitude: number; longitude: number; radius: number };
+    farmerId?: string;
   };
 }
 

@@ -9,6 +9,23 @@ import { RootState, AppDispatch } from '../src/store';
 import { getCurrentUser } from '../src/store/slices/authSlice';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import LoadingSpinner from '../src/components/common/LoadingSpinner';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://ec9b641b879f04e4ec78ea1ff33bc0dd@o4509705428729856.ingest.de.sentry.io/4509775036088400',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 function AppContent() {
   const dispatch = useDispatch<AppDispatch>();
@@ -55,11 +72,11 @@ function AppContent() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   useFrameworkReady();
   return (
     <Provider store={store}>
       <AppContent />
     </Provider>
   );
-}
+});

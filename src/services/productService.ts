@@ -1,7 +1,7 @@
 import { Databases, Query, Storage, ImageGravity, Client } from 'react-native-appwrite';
 import { Product, Category } from '../types';
 import { databases, storage } from '../config/appwrite';
-
+import * as Sentry from '@sentry/react-native';
 const appwriteConfig = {
   endpoint: "",//changed
   projectId: "",//changed
@@ -39,21 +39,6 @@ interface SortOptions {
   direction: 'asc' | 'desc';
 }
 
-
-export const getProductById = async (productId: string): Promise<Product> => {
-  try {
-    const product = await databases.getDocument(
-      appwriteConfig.databaseId,
-      appwriteConfig.productsCollectionId,
-      productId
-    );
-    return product as unknown as Product;
-  } catch (error) {
-    console.error('Get product error:', error);
-    throw new Error(error as string);
-  }
-}
-
 class ProductService {
   async getProducts(
     filters?: ProductFilters,
@@ -63,41 +48,44 @@ class ProductService {
   ): Promise<Product[]> {
     try {
       const queries: string[] = [Query.equal('isAvailable', true)];
-
+  
       if (filters?.category) {
         queries.push(Query.equal('category', filters.category));
       }
-
+  
       if (filters?.isOrganic !== undefined) {
         queries.push(Query.equal('isOrganic', filters.isOrganic));
       }
-
+  
       if (filters?.priceRange) {
         queries.push(Query.greaterThanEqual('price.amount', filters.priceRange.min));
         queries.push(Query.lessThanEqual('price.amount', filters.priceRange.max));
       }
-
+  
       if (filters?.minimumQuantity) {
         queries.push(Query.greaterThanEqual('availableQuantity', filters.minimumQuantity));
       }
-
+  
       if (sort) {
         if (sort.field === 'price') {
           queries.push(sort.direction === 'asc' ? Query.orderAsc('price.amount') : Query.orderDesc('price.amount'));
+        } else if (sort.field === 'createdAt') {
+          // Use $createdAt instead of createdAt
+          queries.push(sort.direction === 'asc' ? Query.orderAsc('$createdAt') : Query.orderDesc('$createdAt'));
         } else {
           queries.push(sort.direction === 'asc' ? Query.orderAsc(sort.field) : Query.orderDesc(sort.field));
         }
       }
-
+  
       queries.push(Query.limit(limit));
       queries.push(Query.offset(offset));
-
+  
       const response = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.productsCollectionId,
         queries
       );
-
+  
       return response.documents as unknown as Product[];
     } catch (error) {
       console.error('Get products error:', error);
@@ -112,6 +100,8 @@ class ProductService {
         appwriteConfig.productsCollectionId,
         productId
       );
+      console.log('Product fetched:', product);
+      Sentry.captureException(new Error('Product fetched'))
       return product as unknown as Product;
     } catch (error) {
       console.error('Get product error:', error);
@@ -179,10 +169,10 @@ class ProductService {
         appwriteConfig.productsCollectionId,
         [
           Query.equal('isAvailable', true),
-          Query.orderDesc('$createdAt'),
           Query.limit(limit)
         ]
       );
+      console.log('Featured products:', response.documents);
       return response.documents as unknown as Product[];
     } catch (error) {
       console.error('Get featured products error:', error);
@@ -192,14 +182,16 @@ class ProductService {
 
   async getImageUrl(fileId: string): Promise<string> {
     try {
-      const result = storage.getFilePreview(
-        appwriteConfig.storageBucketId,
+      console.log('Fetching image URL for fileId:', fileId);
+      const result = storage.getFilePreviewURL(
+        "688f502a003b047969d9", // appwriteConfig.storageBucketId,
         fileId,
         400, // width
         300, // height
         ImageGravity.Center, // gravity
         85 // quality
       );
+      console.log('Image URL:', result);
       return result.toString();
     } catch (error) {
       console.error('Get image URL error:', error);
@@ -215,7 +207,7 @@ class ProductService {
         [
           Query.equal('farmer', farmerId),
           Query.equal('isAvailable', true),
-          Query.orderDesc('$createdAt')
+          
         ]
       );
       return response.documents as unknown as Product[];

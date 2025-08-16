@@ -26,9 +26,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, onPress, style })
 
   React.useEffect(() => {
     if (category.imageUrl) {
-      ProductService.getImageUrl(category.imageUrl)
-        .then(setImageUrl)
-        .catch(console.error);
+      setImageUrl(category.imageUrl);
     }
   }, [category.imageUrl]);
 

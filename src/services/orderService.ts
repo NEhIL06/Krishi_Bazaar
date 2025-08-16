@@ -20,8 +20,8 @@ class OrderService {
   async createOrder(orderData: CreateOrderData): Promise<Order> {
     try {
       const order = await databases.createDocument(
-        DATABASE_ID!,
-        COLLECTION_IDS.ORDERS,
+        "688f5012002f53e1b1de", // Database Id
+        "688fd43600046ffb7b9d", // orders collection id
         ID.unique(),
         {
           ...orderData,
@@ -39,8 +39,8 @@ class OrderService {
   async getOrdersByBuyer(buyerId: string): Promise<Order[]> {
     try {
       const response = await databases.listDocuments(
-        DATABASE_ID!,
-        COLLECTION_IDS.ORDERS,
+        "688f5012002f53e1b1de",//Database Id
+        "688fd43600046ffb7b9d",// orders collection id
         [
           Query.equal('buyer', buyerId),
           Query.orderDesc('$createdAt')
@@ -55,9 +55,10 @@ class OrderService {
 
   async getOrderById(orderId: string): Promise<Order> {
     try {
+      console.log('Fetching order with ID:', orderId);
       const order = await databases.getDocument(
-        DATABASE_ID!,
-        COLLECTION_IDS.ORDERS,
+        "688f5012002f53e1b1de",
+        "688fd43600046ffb7b9d", // orders collection id
         orderId
       );
       return order.documents[0] as Order;
@@ -82,8 +83,8 @@ class OrderService {
       }
 
       const order = await databases.updateDocument(
-        DATABASE_ID!,
-        COLLECTION_IDS.ORDERS,
+        "688f5012002f53e1b1de", // Database Id
+        "688fd43600046ffb7b9d", // orders collection id
         orderId,
         updateData
       );
@@ -98,8 +99,8 @@ class OrderService {
   async cancelOrder(orderId: string, reason?: string): Promise<Order> {
     try {
       const order = await databases.updateDocument(
-        DATABASE_ID!,
-        COLLECTION_IDS.ORDERS,
+        "688f5012002f53e1b1de", // Database Id
+        "688fd43600046ffb7b9d", // orders collection id 
         orderId,
         {
           status: 'cancelled',
@@ -122,19 +123,19 @@ class OrderService {
   ): Promise<Order[]> {
     try {
       const queries = [
-        `buyer.equal("${buyerId}")`,
-        'orderDesc("$createdAt")',
-        `limit(${limit})`,
-        `offset(${offset})`
+        Query.equal('buyer', buyerId),  
+        Query.orderDesc('$createdAt'),            
+        Query.limit(limit),
+        Query.offset(offset)
       ];
 
       if (status) {
-        queries.push(`status.equal("${status}")`);
+        queries.push(Query.equal('status', status));
       }
 
       const response = await databases.listDocuments(
-        DATABASE_ID!,
-        COLLECTION_IDS.ORDERS,
+        "688f5012002f53e1b1de", // Database Id
+        "688fd43600046ffb7b9d", // orders collection id
         queries
       );
       return response.documents as unknown as Order[];
@@ -150,8 +151,8 @@ class OrderService {
   ): Promise<Order> {
     try {
       const order = await databases.updateDocument(
-        DATABASE_ID!,
-        COLLECTION_IDS.ORDERS,
+        "688f5012002f53e1b1de", // Database Id
+        "688fd43600046ffb7b9d", // orders collection id
         orderId,
         { paymentStatus }
       );

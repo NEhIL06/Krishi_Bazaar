@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -22,6 +23,52 @@ import { Order } from '../../src/types';
 // Define the MaterialIcons type
 type MaterialIconName = React.ComponentProps<typeof MaterialIcons>['name'];
 
+// Configuration constants
+const CONFIG = {
+  ORDER_ID_DISPLAY_LENGTH: 8,
+  DATE_LOCALE: 'en-IN',
+  CURRENCY_LOCALE: 'en-IN',
+  CURRENCY_SYMBOL: '₹',
+} as const;
+
+// Type-safe status mappings
+const STATUS_CONFIG: Record<Order['status'], {
+  color: string;
+  icon: MaterialIconName;
+  label: string;
+}> = {
+  pending: {
+    color: Colors.warning[500],
+    icon: 'schedule',
+    label: 'Pending',
+  },
+  confirmed: {
+    color: Colors.primary[500],
+    icon: 'check-circle',
+    label: 'Confirmed',
+  },
+  packed: {
+    color: Colors.secondary[500],
+    icon: 'inventory',
+    label: 'Packed',
+  },
+  shipped: {
+    color: Colors.success[400],
+    icon: 'local-shipping',
+    label: 'Shipped',
+  },
+  delivered: {
+    color: Colors.success[600],
+    icon: 'done-all',
+    label: 'Delivered',
+  },
+  cancelled: {
+    color: Colors.error[500],
+    icon: 'cancel',
+    label: 'Cancelled',
+  },
+};
+
 const OrdersPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { orders, isLoading, error } = useSelector((state: RootState) => state.orders);
@@ -30,120 +77,148 @@ const OrdersPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<Order['status'] | 'all'>('all');
 
+  // Memoized calculations for better performance
+  const orderStats = useMemo(() => {
+    const stats = orders.reduce((acc, order) => {
+      acc[order.status] = (acc[order.status] || 0) + 1;
+      return acc;
+    }, {} as Record<Order['status'], number>);
+    
+    return {
+      all: orders.length,
+      ...stats,
+    };
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    return selectedFilter === 'all' 
+      ? orders 
+      : orders.filter(order => order.status === selectedFilter);
+  }, [orders, selectedFilter]);
+
+  // Improved error handling with user feedback
+  const loadOrders = useCallback(async () => {
+    if (!user) {
+      Alert.alert('Error', 'User not authenticated. Please log in again.');
+      return;
+    }
+
+    try {
+      await dispatch(fetchOrdersByBuyer(user.$id)).unwrap();
+    } catch (error) {
+      console.error('Failed to load orders:', error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to load orders. Please try again.';
+      Alert.alert('Error', errorMessage);
+    }
+  }, [dispatch, user]);
+
   useEffect(() => {
     if (user) {
       loadOrders();
     }
-  }, [user]);
+  }, [user, loadOrders]);
 
-  const loadOrders = async () => {
-    if (user) {
-      try {
-        await dispatch(fetchOrdersByBuyer(user.$id));
-      } catch (error) {
-        console.error('Failed to load orders:', error);
-      }
-    }
-  };
-
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadOrders();
     setRefreshing(false);
+  }, [loadOrders]);
+
+  // Helper functions with better error handling
+  const getStatusConfig = (status: Order['status']) => {
+    return STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   };
 
-  const getStatusColor = (status: Order['status']) => {
-    const statusColors = {
-      pending: Colors.warning[500],
-      confirmed: Colors.primary[500],
-      packed: Colors.secondary[500],
-      shipped: Colors.success[400],
-      delivered: Colors.success[600],
-      cancelled: Colors.error[500],
-    };
-    return statusColors[status];
-  };
+  const formatDate = useCallback((dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString(CONFIG.DATE_LOCALE);
+    } catch {
+      return 'Invalid date';
+    }
+  }, []);
 
-  // Fix: Return the correct MaterialIcons type
-  const getStatusIcon = (status: Order['status']): MaterialIconName => {
-    const statusIcons: Record<Order['status'], MaterialIconName> = {
-      pending: 'schedule',
-      confirmed: 'check-circle',
-      packed: 'inventory',
-      shipped: 'local-shipping',
-      delivered: 'done-all',
-      cancelled: 'cancel',
-    };
-    return statusIcons[status];
-  };
+  const formatPrice = useCallback((amount: number) => {
+    try {
+      return `${CONFIG.CURRENCY_SYMBOL}${amount.toLocaleString(CONFIG.CURRENCY_LOCALE)}`;
+    } catch {
+      return `${CONFIG.CURRENCY_SYMBOL}${amount}`;
+    }
+  }, []);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN');
-  };
+  const formatOrderId = useCallback((orderId: string) => {
+    return `#${orderId.slice(-CONFIG.ORDER_ID_DISPLAY_LENGTH).toUpperCase()}`;
+  }, []);
 
-  const formatPrice = (amount: number) => {
-    return `₹${amount.toLocaleString('en-IN')}`;
-  };
+  const handleOrderPress = useCallback((orderId: string) => {
+    router.push({
+      pathname: '/order/[id]',
+      params: { id: orderId }
+    });
+  }, []);
 
-  const filteredOrders = selectedFilter === 'all' 
-    ? orders 
-    : orders.filter(order => order.status === selectedFilter);
-
-  const renderOrderItem = ({ item }: { item: Order }) => (
-    <TouchableOpacity
-      style={styles.orderCard}
-      onPress={() => router.push({
-        pathname: '/order/[id]',
-        params: { id: item.$id }
-      })}
-    >
-      <View style={styles.orderHeader}>
-        <Text style={styles.orderId}>#{item.$id.slice(-8).toUpperCase()}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-          <MaterialIcons 
-            name={getStatusIcon(item.status)} 
-            size={16} 
-            color={getStatusColor(item.status)} 
-          />
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-          </Text>
+  const renderOrderItem = useCallback(({ item }: { item: Order }) => {
+    const statusConfig = getStatusConfig(item.status);
+    
+    return (
+      <TouchableOpacity
+        style={styles.orderCard}
+        onPress={() => handleOrderPress(item.$id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.orderHeader}>
+          <Text style={styles.orderId}>{formatOrderId(item.$id)}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusConfig.color + '20' }]}>
+            <MaterialIcons 
+              name={statusConfig.icon} 
+              size={16} 
+              color={statusConfig.color} 
+            />
+            <Text style={[styles.statusText, { color: statusConfig.color }]}>
+              {statusConfig.label}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.orderDetails}>
-        <Text style={styles.productName} numberOfLines={1}>
-          Product: {item.product}
-        </Text>
-        <Text style={styles.quantity}>Quantity: {item.quantity}</Text>
-        <Text style={styles.amount}>{formatPrice(item.totalAmount)}</Text>
-      </View>
-
-      <View style={styles.orderFooter}>
-        <Text style={styles.orderDate}>Ordered on {formatDate(item.$createdAt)}</Text>
-        {item.expectedDeliveryDate && (
-          <Text style={styles.deliveryDate}>
-            Expected: {formatDate(item.expectedDeliveryDate)}
+        <View style={styles.orderDetails}>
+          <Text style={styles.productName} numberOfLines={1}>
+            Product: {item.product}
           </Text>
-       )}
-      </View>
-
-      {item.trackingNumber && (
-        <View style={styles.trackingContainer}>
-          <MaterialIcons name="local-shipping" size={16} color={Colors.primary[400]} />
-          <Text style={styles.trackingNumber}>Tracking: {item.trackingNumber}</Text>
+          <Text style={styles.quantity}>Quantity: {item.quantity}</Text>
+          <Text style={styles.amount}>{formatPrice(item.totalAmount)}</Text>
         </View>
-      )}
-    </TouchableOpacity>
-  );
 
-  const renderFilterTabs = () => {
-    const filters: Array<{ key: Order['status'] | 'all'; label: string; count?: number }> = [
-      { key: 'all', label: 'All', count: orders.length },
-      { key: 'pending', label: 'Pending', count: orders.filter(o => o.status === 'pending').length },
-      { key: 'confirmed', label: 'Confirmed', count: orders.filter(o => o.status === 'confirmed').length },
-      { key: 'shipped', label: 'Shipped', count: orders.filter(o => o.status === 'shipped').length },
-      { key: 'delivered', label: 'Delivered', count: orders.filter(o => o.status === 'delivered').length },
+        <View style={styles.orderFooter}>
+          <Text style={styles.orderDate}>Ordered on {formatDate(item.$createdAt)}</Text>
+          {item.expectedDeliveryDate && (
+            <Text style={styles.deliveryDate}>
+              Expected: {formatDate(item.expectedDeliveryDate)}
+            </Text>
+          )}
+        </View>
+
+        {item.trackingNumber && (
+          <View style={styles.trackingContainer}>
+            <MaterialIcons name="local-shipping" size={16} color={Colors.primary[400]} />
+            <Text style={styles.trackingNumber}>Tracking: {item.trackingNumber}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  }, [formatOrderId, formatPrice, formatDate, handleOrderPress]);
+
+  const renderFilterTabs = useCallback(() => {
+    const filters: Array<{ 
+      key: Order['status'] | 'all'; 
+      label: string; 
+      count: number;
+    }> = [
+      { key: 'all', label: 'All', count: orderStats.all },
+      { key: 'pending', label: 'Pending', count: orderStats.pending || 0 },
+      { key: 'confirmed', label: 'Confirmed', count: orderStats.confirmed || 0 },
+      { key: 'shipped', label: 'Shipped', count: orderStats.shipped || 0 },
+      { key: 'delivered', label: 'Delivered', count: orderStats.delivered || 0 },
     ];
 
     return (
@@ -158,6 +233,7 @@ const OrdersPage: React.FC = () => {
                 selectedFilter === item.key && styles.filterTabActive,
               ]}
               onPress={() => setSelectedFilter(item.key)}
+              activeOpacity={0.7}
             >
               <Text
                 style={[
@@ -167,7 +243,7 @@ const OrdersPage: React.FC = () => {
               >
                 {item.label}
               </Text>
-              {item.count !== undefined && item.count > 0 && (
+              {item.count > 0 && (
                 <View style={styles.filterTabBadge}>
                   <Text style={styles.filterTabBadgeText}>{item.count}</Text>
                 </View>
@@ -180,7 +256,32 @@ const OrdersPage: React.FC = () => {
         />
       </View>
     );
-  };
+  }, [orderStats, selectedFilter]);
+
+  const renderEmptyState = useCallback(() => {
+    const isFiltered = selectedFilter !== 'all';
+    
+    return (
+      <View style={styles.emptyState}>
+        <MaterialIcons name="shopping-bag" size={64} color={Colors.neutral[400]} />
+        <Text style={styles.emptyText}>No orders found</Text>
+        <Text style={styles.emptySubtext}>
+          {isFiltered 
+            ? `No ${selectedFilter} orders found`
+            : "You haven't placed any orders yet"}
+        </Text>
+        {!isFiltered && (
+          <TouchableOpacity 
+            style={styles.browseButton}
+            onPress={() => router.push('/categories')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.browseButtonText}>Browse Products</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }, [selectedFilter]);
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
@@ -190,6 +291,7 @@ const OrdersPage: React.FC = () => {
         <TouchableOpacity 
           style={styles.headerButton}
           onPress={() => router.push('/categories')}
+          activeOpacity={0.7}
         >
           <MaterialIcons name="add-shopping-cart" size={24} color={Colors.primary[400]} />
         </TouchableOpacity>
@@ -204,32 +306,19 @@ const OrdersPage: React.FC = () => {
           data={filteredOrders}
           renderItem={renderOrderItem}
           keyExtractor={(item) => item.$id}
-          contentContainerStyle={styles.ordersList}
+          contentContainerStyle={[
+            styles.ordersList,
+            filteredOrders.length === 0 && styles.ordersListEmpty
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-          ListEmptyComponent={
-            isLoading ? (
-              <LoadingSpinner size="large" />
-            ) : (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="shopping-bag" size={64} color={Colors.neutral[400]} />
-                <Text style={styles.emptyText}>No orders found</Text>
-                <Text style={styles.emptySubtext}>
-                  {selectedFilter === 'all' 
-                    ? "You haven't placed any orders yet" 
-                    : `No ${selectedFilter} orders`}
-                </Text>
-                <TouchableOpacity 
-                  style={styles.browseButton}
-                  onPress={() => router.push('/categories')}
-                >
-                  <Text style={styles.browseButtonText}>Browse Products</Text>
-                </TouchableOpacity>
-              </View>
-            )
-          }
+          ListEmptyComponent={isLoading ? <LoadingSpinner size="large" /> : renderEmptyState()}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={10}
         />
       )}
     </SafeAreaView>
@@ -304,6 +393,9 @@ const styles = StyleSheet.create({
   ordersList: {
     padding: 16,
   },
+  ordersListEmpty: {
+    flex: 1,
+  },
   orderCard: {
     backgroundColor: Colors.white,
     borderRadius: 12,
@@ -311,6 +403,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: Colors.neutral[200],
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   orderHeader: {
     flexDirection: 'row',

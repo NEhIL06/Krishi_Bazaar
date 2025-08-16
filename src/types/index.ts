@@ -53,6 +53,7 @@ export interface Product {
   city: string;
   deliveryTimeframe: string;
   isAvailable: boolean;
+  rating?: number;
 }
 
 export interface Farmer {

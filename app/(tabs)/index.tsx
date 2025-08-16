@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,8 @@ import {
   FlatList,
   RefreshControl,
   SafeAreaView,
-  Button,
 } from 'react-native';
+import * as Sentry from '@sentry/react-native';  
 import { useDispatch, useSelector } from 'react-redux';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -20,7 +20,6 @@ import {
   fetchCategories,
   setSearchQuery 
 } from '../../src/store/slices/productSlice';
-import { getCurrentUser } from '../../src/store/slices/authSlice';
 import Colors from '../../src/constants/colors';
 import GlobalStyles from '../../src/constants/styles';
 import ProductCard from '../../src/components/products/ProductCard';
@@ -28,86 +27,224 @@ import CategoryCard from '../../src/components/products/CategoryCard';
 import LoadingSpinner from '../../src/components/common/LoadingSpinner';
 import ErrorMessage from '../../src/components/common/ErrorMessage';
 import { Product, Category } from '../../src/types';
-import seed from '@/src/seed/seed';
+
+// Constants
+const CATEGORIES_TO_SHOW = 6;
+const QUICK_ACTIONS = [
+  {
+    id: 'orders',
+    icon: 'shopping-bag',
+    label: 'My Orders',
+    color: Colors.primary[400],
+    route: '/orders'
+  },
+  {
+    id: 'messages',
+    icon: 'chat',
+    label: 'Messages',
+    color: Colors.secondary[500],
+    route: '/messages'
+  },
+  {
+    id: 'nearme',
+    icon: 'location-on',
+    label: 'Near Me',
+    color: Colors.success[500],
+    route: '/categories'
+  }
+] as const;
 
 const HomePage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { 
-    featuredProducts, 
-    categories, 
-    isLoading, 
-    error
-  } = useSelector((state: RootState) => state.products || {});
-  const { user = null } = useSelector((state: RootState) => state.auth || {});
+  
+  // Safe selector with proper fallbacks
+  const {
+    featuredProducts = [],
+    categories = [],
+    isLoading = false,
+    error = null
+  } = useSelector((state: RootState) => state.products ?? {});
+  
+  const {
+    user = null
+  } = useSelector((state: RootState) => state.auth ?? {});
   
   const [refreshing, setRefreshing] = useState(false);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   console.log('HomePage: Rendering with user:', user);
+
+  // Memoized user's first name
+  const firstName = useMemo(() => {
+    if (!user?.name) return 'किसान';
+    return user.name.split(' ')[0] || 'किसान';
+  }, [user?.name]);
+
+  // Memoized limited categories
+  const limitedCategories = useMemo(() => 
+    categories.slice(0, CATEGORIES_TO_SHOW), 
+    [categories]
+  );
+
+  const loadInitialData = useCallback(async () => {
+    try {
+      console.log('HomePage: Loading featured products and categories');
+      const results = await Promise.allSettled([
+        dispatch(fetchFeaturedProducts()),
+        dispatch(fetchCategories())
+      ]);
+      
+      // Check for any failures
+      const failures = results.filter(result => result.status === 'rejected');
+      if (failures.length > 0) {
+        console.warn('HomePage: Some data failed to load:', failures);
+      }
+      
+      console.log('HomePage: Initial data load completed');
+    } catch (error) {
+      console.error('HomePage: Error loading initial data:', error);
+    }
+  }, [dispatch]);
 
   useEffect(() => {
     console.log('HomePage: useEffect triggered, loading initial data');
     loadInitialData();
-  }, []);
+  }, [loadInitialData]);
 
-  const loadInitialData = async () => {
-    try {
-      console.log('HomePage: Loading featured products and categories');
-      await Promise.all([
-        dispatch(fetchFeaturedProducts()),
-        dispatch(fetchCategories())
-      ]);
-      console.log('HomePage: Initial data loaded successfully');
-    } catch (error) {
-      console.error('HomePage: Error loading initial data:', error);
-    }
-  };
-
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadInitialData();
     setRefreshing(false);
-  };
+  }, [loadInitialData]);
 
-  const handleSearch = () => {
-    if (localSearchQuery.trim()) {
-      dispatch(setSearchQuery(localSearchQuery));
+  const handleSearch = useCallback(async () => {
+    const query = localSearchQuery.trim();
+    if (!query) return;
+
+    setIsSearching(true);
+    try {
+      dispatch(setSearchQuery(query));
       router.push({
         pathname: '/categories',
-        params: { search: localSearchQuery }
+        params: { search: query }
       });
+    } catch (error) {
+      Sentry.captureException(error);
+      console.error('Search navigation failed:', error);
+    } finally {
+      setIsSearching(false);
     }
-  };
+  }, [localSearchQuery, dispatch]);
 
-  const handleProductPress = (product: Product) => {
+  const handleProductPress = useCallback((product: Product) => {
     router.push({
       pathname: '/product/[id]',
       params: { id: product.$id }
     });
-  };
+  }, []);
 
-  const handleCategoryPress = (category: Category) => {
+  const handleCategoryPress = useCallback((category: Category) => {
     router.push({
       pathname: '/categories',
       params: { categoryId: category.$id }
     });
-  };
+  }, []);
 
-  const renderFeaturedProduct = ({ item }: { item: Product }) => (
+  const handleProfilePress = useCallback(() => {
+    router.push('/profile');
+  }, []);
+
+  const handleSeeAllCategories = useCallback(() => {
+    router.push('/categories');
+  }, []);
+
+  const handleSeeAllProducts = useCallback(() => {
+    router.push('/categories');
+  }, []);
+
+  const handleQuickAction = useCallback((route: string) => {
+    router.push(route as any);
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setLocalSearchQuery('');
+  }, []);
+
+  // Memoized render functions
+  const renderFeaturedProduct = useCallback(({ item }: { item: Product }) => (
     <ProductCard
       product={item}
-      onPress={handleProductPress}
+      onPress={() => handleProductPress(item)}
       style={styles.featuredProductCard}
     />
-  );
+  ), [handleProductPress]);
 
-  const renderCategory = ({ item }: { item: Category }) => (
+  const renderCategory = useCallback(({ item }: { item: Category }) => (
     <CategoryCard
       category={item}
-      onPress={handleCategoryPress}
+      onPress={() => handleCategoryPress(item)}
       style={styles.categoryCard}
     />
-  );
+  ), [handleCategoryPress]);
+
+  const keyExtractorProduct = useCallback((item: Product) => item.$id, []);
+  const keyExtractorCategory = useCallback((item: Category) => item.$id, []);
+
+  // Memoized sections
+  const searchSection = useMemo(() => (
+    <View style={styles.searchContainer}>
+      <MaterialIcons name="search" size={20} color={Colors.neutral[500]} />
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search for crops, vegetables, fruits..."
+        value={localSearchQuery}
+        onChangeText={setLocalSearchQuery}
+        onSubmitEditing={handleSearch}
+        returnKeyType="search"
+        editable={!isSearching}
+      />
+      {localSearchQuery.length > 0 && (
+        <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+          <MaterialIcons name="clear" size={20} color={Colors.neutral[500]} />
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity 
+        onPress={handleSearch} 
+        disabled={isSearching || !localSearchQuery.trim()}
+        style={[
+          styles.searchButton,
+          (isSearching || !localSearchQuery.trim()) && styles.searchButtonDisabled
+        ]}
+      >
+        {isSearching ? (
+          <LoadingSpinner size="small" color={Colors.primary[400]} />
+        ) : (
+          <MaterialIcons name="arrow-forward" size={20} color={Colors.primary[400]} />
+        )}
+      </TouchableOpacity>
+    </View>
+  ), [localSearchQuery, isSearching, handleSearch, clearSearch]);
+
+  const quickActionsSection = useMemo(() => (
+    <View style={styles.quickActions}>
+      {QUICK_ACTIONS.map((action) => (
+        <TouchableOpacity
+          key={action.id}
+          style={styles.quickActionCard}
+          onPress={() => handleQuickAction(action.route)}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons 
+            name={action.icon as any} 
+            size={32} 
+            color={action.color} 
+          />
+          <Text style={styles.quickActionText}>{action.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  ), [handleQuickAction]);
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
@@ -116,39 +253,30 @@ const HomePage: React.FC = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <View>
+            <View style={styles.greetingContainer}>
               <Text style={styles.greeting}>
-                नमस्ते, {(user?.name || '').split(' ')[0] || 'किसान'}! 🙏
+                नमस्ते, {firstName}! 🙏
               </Text>
-              <Text style={styles.subGreeting}>Find fresh produce directly from farmers</Text>
+              <Text style={styles.subGreeting}>
+                Find fresh produce directly from farmers
+              </Text>
             </View>
             <TouchableOpacity
               style={styles.profileButton}
-              onPress={() => router.push('/profile')}
+              onPress={handleProfilePress}
+              activeOpacity={0.7}
             >
               <MaterialIcons name="person" size={24} color={Colors.primary[400]} />
             </TouchableOpacity>
           </View>
 
           {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <MaterialIcons name="search" size={20} color={Colors.neutral[500]} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search for crops, vegetables, fruits..."
-              value={localSearchQuery}
-              onChangeText={setLocalSearchQuery}
-              onSubmitEditing={handleSearch}
-              returnKeyType="search"
-            />
-            <TouchableOpacity onPress={handleSearch}>
-              <MaterialIcons name="arrow-forward" size={20} color={Colors.primary[400]} />
-            </TouchableOpacity>
-          </View>
+          {searchSection}
         </View>
 
         {error && (
@@ -163,76 +291,74 @@ const HomePage: React.FC = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Categories</Text>
-            <TouchableOpacity onPress={() => router.push('/categories')}>
+            <TouchableOpacity onPress={handleSeeAllCategories}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
           
-          {categories.length > 0 ? (
+          {isLoading && categories.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <LoadingSpinner />
+              <Text style={styles.loadingText}>Loading categories...</Text>
+            </View>
+          ) : limitedCategories.length > 0 ? (
             <FlatList
               horizontal
-              data={categories.slice(0, 6)}
+              data={limitedCategories}
               renderItem={renderCategory}
-              keyExtractor={(item) => item.$id}
+              keyExtractor={keyExtractorCategory}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.horizontalList}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={3}
+              windowSize={5}
             />
           ) : (
-            isLoading ? <LoadingSpinner /> : null
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="category" size={48} color={Colors.neutral[400]} />
+              <Text style={styles.emptyText}>No categories available</Text>
+            </View>
           )}
         </View>
-        <Button title='seed' onPress={seed} />
+
         {/* Featured Products Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Featured Products</Text>
-            <TouchableOpacity onPress={() => router.push('/categories')}>
+            <TouchableOpacity onPress={handleSeeAllProducts}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
           
-          {featuredProducts.length > 0 ? (
+          {isLoading && featuredProducts.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <LoadingSpinner />
+              <Text style={styles.loadingText}>Loading products...</Text>
+            </View>
+          ) : featuredProducts.length > 0 ? (
             <FlatList
               horizontal
               data={featuredProducts}
               renderItem={renderFeaturedProduct}
-              keyExtractor={(item) => item.$id}
+              keyExtractor={keyExtractorProduct}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.horizontalList}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={3}
+              windowSize={5}
             />
           ) : (
-            isLoading ? <LoadingSpinner /> : null
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="inventory" size={48} color={Colors.neutral[400]} />
+              <Text style={styles.emptyText}>No featured products available</Text>
+            </View>
           )}
         </View>
 
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => router.push('/orders')}
-            >
-              <MaterialIcons name="shopping-bag" size={32} color={Colors.primary[400]} />
-              <Text style={styles.quickActionText}>My Orders</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => router.push('/messages')}
-            >
-              <MaterialIcons name="chat" size={32} color={Colors.secondary[500]} />
-              <Text style={styles.quickActionText}>Messages</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => router.push('/categories')}
-            >
-              <MaterialIcons name="location-on" size={32} color={Colors.success[500]} />
-              <Text style={styles.quickActionText}>Near Me</Text>
-            </TouchableOpacity>
-          </View>
+          {quickActionsSection}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -257,6 +383,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+  },
+  greetingContainer: {
+    flex: 1,
+    marginRight: 12,
   },
   greeting: {
     fontSize: 20,
@@ -291,6 +421,16 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     color: Colors.text.primary,
+  },
+  clearButton: {
+    padding: 4,
+    marginRight: 4,
+  },
+  searchButton: {
+    padding: 4,
+  },
+  searchButtonDisabled: {
+    opacity: 0.5,
   },
   section: {
     paddingHorizontal: 16,
@@ -352,6 +492,24 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     margin: 16,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    marginTop: 8,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: Colors.text.secondary,
+    marginTop: 8,
   },
 });
 

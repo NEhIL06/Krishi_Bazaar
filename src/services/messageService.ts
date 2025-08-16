@@ -3,9 +3,30 @@ import { databases, DATABASE_ID, COLLECTION_IDS, ID, client } from '../config/ap
 import { Message } from '../types';
  
 
+const appwriteConfig = {
+  endpoint: "",//changed
+  projectId: "",//changed
+  platform: "",//changed
+  databaseId: "688f5012002f53e1b1de",//changed
+  userCollectionId: "688fbb6300056efcbff0",//changed
+  storageBucketId: "688f502a003b047969d9",//changed
+  categoriesCollectionId: "688fcf55003266123ae4",
+  productsCollectionId: "688fd04200142b03e8bc",
+  reviewsCollectionId: "688fd6b4002d22dfeb93",
+  ordersCollectionId: "688fd43600046ffb7b9d",
+  messagesCollectionId: "688fd5e20033a85ba9ed",
+  farmersCollectionId: "688fd2fb003bfc7c3a15",
+};
 
-interface getMessagesParams {  userId: string;  
-otherUserId: string; limit?: number; offset?: number; }
+interface getMessagesParams {  
+  userId: string;  
+  otherUserId: string; 
+  limit?: number; 
+  offset?: number; 
+}
+
+
+
 class MessageService {
   async sendMessage(senderId: string,receiverId: string,content: string,
     messageType: Message['messageType'] = 'text',
@@ -14,8 +35,8 @@ class MessageService {
   ): Promise<Message> {
     try {
       const message = await databases.createDocument(
-        DATABASE_ID!,
-        COLLECTION_IDS.MESSAGES,
+        appwriteConfig.databaseId,
+        appwriteConfig.messagesCollectionId,
         ID.unique(),
         {
           sender: senderId,
@@ -37,8 +58,8 @@ class MessageService {
   async getMessages({userId,otherUserId,limit = 50,offset = 0}:getMessagesParams) {
     try {
       const response = await databases.listDocuments(
-        DATABASE_ID!,
-        COLLECTION_IDS.MESSAGES,
+        appwriteConfig.databaseId,
+        appwriteConfig.messagesCollectionId,
         [
           Query.equal('sender', userId),
           Query.equal('receiver', otherUserId),
@@ -49,8 +70,8 @@ class MessageService {
       );
 
       const response2 = await databases.listDocuments(
-        DATABASE_ID!,
-        COLLECTION_IDS.MESSAGES,
+        appwriteConfig.databaseId,
+        appwriteConfig.messagesCollectionId,
         [
           Query.equal('sender', otherUserId),
           Query.equal('receiver', userId),
@@ -76,8 +97,8 @@ class MessageService {
   async markAsRead(messageId: string) {
     try {
       await databases.updateDocument(
-        DATABASE_ID!,
-        COLLECTION_IDS.MESSAGES,
+        appwriteConfig.databaseId,
+        appwriteConfig.messagesCollectionId,
         messageId,
         { isRead: true }
       );
@@ -91,14 +112,14 @@ class MessageService {
     try {
       // Get all messages where user is sender or receiver
       const sentResponse = await databases.listDocuments(
-        DATABASE_ID!,
-        COLLECTION_IDS.MESSAGES,
+        appwriteConfig.databaseId,
+        appwriteConfig.messagesCollectionId,
         [Query.equal('sender', userId)]
       );
 
       const receivedResponse = await databases.listDocuments(
-        DATABASE_ID!,
-        COLLECTION_IDS.MESSAGES,
+        appwriteConfig.databaseId,
+        appwriteConfig.messagesCollectionId,
         [Query.equal('receiver', userId)]
       );
 

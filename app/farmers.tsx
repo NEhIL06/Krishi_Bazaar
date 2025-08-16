@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,46 +19,23 @@ import LoadingSpinner from '../src/components/common/LoadingSpinner';
 import ErrorMessage from '../src/components/common/ErrorMessage';
 import { Farmer } from '../src/types';
 import { ImageGravity, Query } from 'react-native-appwrite';
+import * as Sentry from '@sentry/react-native';
+
+// Extended Farmer interface to include imageUrl
+interface FarmerWithImage extends Farmer {
+  imageUrl?: string;
+}
 
 const FarmersPage: React.FC = () => {
-  const [farmers, setFarmers] = useState<Farmer[]>([]);
+  const [farmers, setFarmers] = useState<FarmerWithImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    if(loaded) return; // Prevent reloading if already loaded
-    loadFarmers();
-  }, []);
 
-  const loadFarmers = async () => {
+  const getImageUrl = useCallback(async (fileId: string): Promise<string> => {
     try {
-      setError(null);
-      const response = await databases.listDocuments(
-        "688f5012002f53e1b1de", // DATABASE_ID
-        "68873a62001f447ef53f", // COLLECTION_ID for farmers
-        [Query.equal('isVerified', true), Query.orderDesc('$createdAt')], // Fetch only verified farmers
-      );
-      setFarmers(response.documents as unknown as Farmer[]);
-      console.log('Farmers loaded:', response.documents.length);
-      setLoaded(true);  
-    } catch (error: any) {
-      console.error('Failed to load farmers:', error);
-      setError(error.message || 'Failed to load farmers');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadFarmers();
-    setRefreshing(false);
-  };
-
-  const getImageUrl = async (fileId: string) => {
-    try {
+      console.log('Getting image URL for file ID:', fileId);
       const result = storage.getFilePreview(
         "688f502a003b047969d9",
         fileId,
@@ -67,13 +44,80 @@ const FarmersPage: React.FC = () => {
         ImageGravity.Center,      
         85
       );
+      console.log('Image URL generated successfully');
       return result.toString();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Failed to get image URL:', error);
+      Sentry.captureException(new Error(`Failed to get image URL: ${error.message}`));
       return '';
     }
-  };
+  }, []);
 
-  const handleFarmerPress = (farmer: Farmer) => {
+  const loadFarmers = useCallback(async () => {
+    try {
+      setError(null);
+      console.log('Loading farmers...');
+      
+      const response = await databases.listDocuments(
+        "688f5012002f53e1b1de", // Database ID
+        "68873a62001f447ef53f", // Make sure this exists in your COLLECTION_IDS
+        [Query.equal('isVerified', true), Query.orderDesc('$createdAt')]
+      );
+
+      console.log('Farmers fetched:', response.documents.length);
+
+      // Preload image URLs for all farmers
+      const farmersWithImages = await Promise.allSettled(
+        response.documents.map(async (farmer: any): Promise<FarmerWithImage> => {
+          let imageUrl = '';
+          if (farmer.profileImage) {
+            try {
+              imageUrl = await getImageUrl(farmer.profileImage);
+            } catch (error) {
+              console.warn(`Failed to load image for farmer ${farmer.$id}:`, error);
+            }
+          }
+          return { ...farmer, imageUrl } as FarmerWithImage;
+        })
+      );
+
+      // Extract successful results and handle any failures
+      const successfulFarmers = farmersWithImages
+        .filter((result): result is PromiseFulfilledResult<FarmerWithImage> => 
+          result.status === 'fulfilled'
+        )
+        .map(result => result.value);
+
+      // Log any failures
+      farmersWithImages
+        .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+        .forEach((result, index) => {
+          console.error(`Failed to process farmer at index ${index}:`, result.reason);
+        });
+
+      setFarmers(successfulFarmers);
+      console.log('Farmers loaded with images:', successfulFarmers.length);
+      
+    } catch (error: any) {
+      console.error('Failed to load farmers:', error);
+      setError(error.message || 'Failed to load farmers');
+      Sentry.captureException(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getImageUrl]);
+
+  useEffect(() => {
+    loadFarmers();
+  }, [loadFarmers]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadFarmers();
+    setRefreshing(false);
+  }, [loadFarmers]);
+
+  const handleFarmerPress = useCallback((farmer: FarmerWithImage) => {  
     router.push({
       pathname: '/chat/[id]',
       params: {
@@ -81,87 +125,61 @@ const FarmersPage: React.FC = () => {
         name: farmer.name
       }
     });
-  };
+  }, []);
 
-  const filteredFarmers = farmers.filter(farmer =>
-    farmer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    farmer.farmName.toLowerCase().includes(searchQuery.toLowerCase())
+  const handleProductsPress = useCallback((farmerId: string) => {
+    router.push({
+      pathname: '/categories',
+      params: { farmerId }
+    });
+  }, []);
+
+  const filteredFarmers = useMemo(() => 
+    farmers.filter(farmer =>
+      farmer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      farmer.farmName.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [farmers, searchQuery]
   );
 
-  const renderFarmerItem = ({ item }: { item: Farmer }) => {
-    const [imageUrl, setImageUrl] = useState<string>('');
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
 
-    React.useEffect(() => {
-      if (item.profileImage) {
-        getImageUrl(item.profileImage).then(setImageUrl);
-      }
-    }, [item.profileImage]);
+  const handleBackPress = useCallback(() => {
+    router.back();
+  }, []);
 
+  const renderFarmerItem = useCallback(({ item }: { item: FarmerWithImage }) => (
+    <FarmerCard
+      farmer={item}
+      onPress={() => handleFarmerPress(item)}
+      onProductsPress={() => handleProductsPress(item.$id)}
+    />
+  ), [handleFarmerPress, handleProductsPress]);
+
+  const keyExtractor = useCallback((item: FarmerWithImage) => item.$id, []);
+
+  const renderEmptyComponent = useMemo(() => {
+    if (isLoading) {
+      return <LoadingSpinner size="large" />;
+    }
+    
     return (
-      <TouchableOpacity
-        style={styles.farmerCard}
-        onPress={() => handleFarmerPress(item)}
-      >
-        <View style={styles.farmerHeader}>
-          <View style={styles.avatarContainer}>
-            {imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <MaterialIcons name="person" size={32} color={Colors.neutral[500]} />
-              </View>
-            )}
-            {item.isVerified && (
-              <View style={styles.verifiedBadge}>
-                <MaterialIcons name="verified" size={16} color={Colors.success[500]} />
-              </View>
-            )}
-          </View>
-
-          <View style={styles.farmerInfo}>
-            <Text style={styles.farmerName}>{item.name}</Text>
-            <Text style={styles.farmName}>{item.farmName}</Text>
-            <View style={styles.locationRow}>
-              <MaterialIcons name="location-on" size={16} color={Colors.neutral[500]} />
-              <Text style={styles.location}>
-                {item.city}, {item.state}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.ratingContainer}>
-            <MaterialIcons name="star" size={16} color={Colors.warning[500]} />
-            <Text style={styles.rating}>{item.rating.toFixed(1)}</Text>
-            <Text style={styles.reviewCount}>({item.totalReviews})</Text>
-          </View>
-        </View>
-
-        <View style={styles.farmerActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleFarmerPress(item)}
-          >
-            <MaterialIcons name="chat" size={20} color={Colors.primary[400]} />
-            <Text style={styles.actionText}>Message</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              // Navigate to farmer's products
-              router.push({
-                pathname: '/categories',
-                params: { farmerId: item.$id }
-              });
-            }}
-          >
-            <MaterialIcons name="inventory" size={20} color={Colors.primary[400]} />
-            <Text style={styles.actionText}>Products</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
+      <View style={styles.emptyState}>
+        <MaterialIcons name="people-outline" size={64} color={Colors.neutral[400]} />
+        <Text style={styles.emptyText}>
+          {searchQuery ? 'No farmers found' : 'No farmers available'}
+        </Text>
+        <Text style={styles.emptySubtext}>
+          {searchQuery 
+            ? 'Try adjusting your search terms'
+            : 'Check back later for verified farmers'
+          }
+        </Text>
+      </View>
     );
-  };
+  }, [isLoading, searchQuery]);
 
   return (
     <SafeAreaView style={GlobalStyles.container}>
@@ -169,7 +187,7 @@ const FarmersPage: React.FC = () => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={handleBackPress}
         >
           <MaterialIcons name="arrow-back" size={24} color={Colors.text.primary} />
         </TouchableOpacity>
@@ -188,7 +206,7 @@ const FarmersPage: React.FC = () => {
           returnKeyType="search"
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <TouchableOpacity onPress={clearSearch}>
             <MaterialIcons name="clear" size={20} color={Colors.neutral[500]} />
           </TouchableOpacity>
         )}
@@ -201,35 +219,109 @@ const FarmersPage: React.FC = () => {
         <FlatList
           data={filteredFarmers}
           renderItem={renderFarmerItem}
-          keyExtractor={(item) => item.$id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.farmersList}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-          ListEmptyComponent={
-            isLoading ? (
-              <LoadingSpinner size="large" />
-            ) : (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="people-outline" size={64} color={Colors.neutral[400]} />
-                <Text style={styles.emptyText}>
-                  {searchQuery ? 'No farmers found' : 'No farmers available'}
-                </Text>
-                <Text style={styles.emptySubtext}>
-                  {searchQuery 
-                    ? 'Try adjusting your search terms'
-                    : 'Check back later for verified farmers'
-                  }
-                </Text>
-              </View>
-            )
-          }
+          ListEmptyComponent={renderEmptyComponent}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={5}
+          getItemLayout={(data, index) => ({
+            length: 150, // Approximate item height
+            offset: 150 * index,
+            index,
+          })}
         />
       )}
     </SafeAreaView>
   );
 };
+
+// Memoized FarmerCard component for better performance
+const FarmerCard = React.memo<{
+  farmer: FarmerWithImage;
+  onPress: () => void;
+  onProductsPress: () => void;
+}>(({ farmer, onPress, onProductsPress }) => {
+  const [imageError, setImageError] = useState(false);
+
+  return (
+    <TouchableOpacity
+      style={styles.farmerCard}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.farmerHeader}>
+        <View style={styles.avatarContainer}>
+          {farmer.imageUrl && !imageError ? (
+            <Image 
+              source={{ uri: farmer.imageUrl }} 
+              style={styles.avatar}
+              onError={() => setImageError(true)}
+              onLoad={() => setImageError(false)}
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <MaterialIcons name="person" size={32} color={Colors.neutral[500]} />
+            </View>
+          )}
+          {farmer.isVerified && (
+            <View style={styles.verifiedBadge}>
+              <MaterialIcons name="verified" size={16} color={Colors.success[500]} />
+            </View>
+          )}
+        </View>
+
+        <View style={styles.farmerInfo}>
+          <Text style={styles.farmerName} numberOfLines={1}>
+            {farmer.name}
+          </Text>
+          <Text style={styles.farmName} numberOfLines={1}>
+            {farmer.farmName}
+          </Text>
+          <View style={styles.locationRow}>
+            <MaterialIcons name="location-on" size={16} color={Colors.neutral[500]} />
+            <Text style={styles.location} numberOfLines={1}>
+              {farmer.city}, {farmer.state}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.ratingContainer}>
+          <MaterialIcons name="star" size={16} color={Colors.warning[500]} />
+          <Text style={styles.rating}>{farmer.rating.toFixed(1)}</Text>
+          <Text style={styles.reviewCount}>({farmer.totalReviews})</Text>
+        </View>
+      </View>
+
+      <View style={styles.farmerActions}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={onPress}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="chat" size={20} color={Colors.primary[400]} />
+          <Text style={styles.actionText}>Message</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={onProductsPress}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="inventory" size={20} color={Colors.primary[400]} />
+          <Text style={styles.actionText}>Products</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+FarmerCard.displayName = 'FarmerCard';
 
 const styles = StyleSheet.create({
   header: {
@@ -286,6 +378,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: Colors.neutral[200],
+    shadowColor: Colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   farmerHeader: {
     flexDirection: 'row',
@@ -300,6 +400,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
+    backgroundColor: Colors.neutral[200],
   },
   avatarPlaceholder: {
     width: 60,
@@ -324,6 +425,7 @@ const styles = StyleSheet.create({
   },
   farmerInfo: {
     flex: 1,
+    marginRight: 8,
   },
   farmerName: {
     fontSize: 18,
@@ -344,6 +446,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.text.secondary,
     marginLeft: 4,
+    flex: 1,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -359,58 +462,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.text.secondary,
     marginLeft: 2,
-  },
-  farmerDetails: {
-    marginBottom: 12,
-  },
-  experienceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  experience: {
-    fontSize: 14,
-    color: Colors.text.primary,
-    marginLeft: 4,
-  },
-  specializationsContainer: {
-    marginBottom: 8,
-  },
-  specializationsLabel: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    marginBottom: 4,
-  },
-  specializationsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-  },
-  specializationChip: {
-    backgroundColor: Colors.primary[100],
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginRight: 6,
-    marginBottom: 4,
-  },
-  specializationText: {
-    fontSize: 12,
-    color: Colors.primary[700],
-  },
-  moreSpecializations: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    fontStyle: 'italic',
-  },
-  certificationsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  certificationsText: {
-    fontSize: 12,
-    color: Colors.success[600],
-    marginLeft: 4,
   },
   farmerActions: {
     flexDirection: 'row',

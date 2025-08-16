@@ -43,20 +43,18 @@ const ProductDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (selectedProduct?.images) {
-      Promise.all(
-        selectedProduct.images.map(imageId => 
-          ProductService.getImageUrl(imageId).catch(() => '')
-        )
-      ).then(urls => setImageUrls(urls.filter(url => url)));
+      // Fetch image URLs for the selected product
+      setImageUrls(selectedProduct.images);
+     
     }
   }, [selectedProduct?.images]);
 
   const formatPrice = (price: any) => {
-    return `₹${price.amount.toLocaleString('en-IN')}/${price.unit}`;
+    return `₹${price.amount}.toLocaleString('en-IN')}/${price.unit}`;
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN');
+    return new Date(dateString);
   };
 
   const handleOrder = () => {
@@ -239,12 +237,12 @@ const ProductDetailPage: React.FC = () => {
             
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Harvest Date:</Text>
-              <Text style={styles.detailValue}>{formatDate(selectedProduct.harvestDate)}</Text>
+              <Text style={styles.detailValue}>{formatDate(selectedProduct.harvestDate).toString()}</Text>
             </View>
             
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Expiry Date:</Text>
-              <Text style={styles.detailValue}>{formatDate(selectedProduct.expiryDate)}</Text>
+              <Text style={styles.detailValue}>{formatDate(selectedProduct.expiryDate).toString()}</Text>
             </View>
             
             <View style={styles.detailRow}>
