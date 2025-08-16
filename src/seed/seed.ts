@@ -166,25 +166,27 @@ async function clearStorage(): Promise<void> {
 async function uploadImageToStorage(imageUrl: string): Promise<string> {
   try {
     const response = await fetch(imageUrl);
-    if (!response.ok) throw new Error(`Failed to fetch image: ${imageUrl}`);
-    console.log(`Fetched image: ${imageUrl}`);
+    console.log("🔥 Uploading image:", imageUrl); 
     const blob = await response.blob();
-    //const fileName = imageUrl.split('/').pop() || `image-${Date.now()}.jpg`;
-    //console.log(`File name: ${fileName}`);
+    console.log("✅ Uploaded image:", imageUrl);
+
     const fileObj = {
-      name: imageUrl.split("/").pop() || `file-${Date.now()}.jpg`,
-      type:'image/jpeg',
-      size: blob.size,
-      uri: imageUrl,
+        name: imageUrl.split("/").pop() || `file-${Date.now()}.jpg`,
+        type: "image/jpg",
+        size: blob.size,
+        uri: imageUrl,
     };
-    console.log("File object created :",fileObj);
+    
+    console.log("✅ Creating file object:", fileObj);
+
     const file = await storage.createFile(
-      appwriteConfig.storageBucketId,
-      ID.unique(),
-      fileObj
+        appwriteConfig.storageBucketId,
+        ID.unique(),
+        fileObj
     );
-    console.log(`File created: ${file.$id}`);
-    return storage.getFileView(appwriteConfig.storageBucketId, file.$id).toString();
+    console.log("✅ Created file:", file);
+
+    return storage.getFileViewURL(appwriteConfig.storageBucketId, file.$id).toString();
   } catch (error) {
     console.error(`Error uploading image ${imageUrl}:`, error);
     throw new Error(error as string);
@@ -208,6 +210,7 @@ async function seed(): Promise<void> {
     // 2. Create Categories
     const categoryMap: Record<string, string> = {};
     for (const cat of data.categories) {
+      console.log(`Creating category ${cat.name}`);
       const imageUrl = await uploadImageToStorage(cat.imageUrl);
       const doc = await databases.createDocument(
         appwriteConfig.databaseId,
@@ -297,82 +300,6 @@ async function seed(): Promise<void> {
     }
     }
     console.log("Products created");
-
-    // 5. Create Orders
-    const orderMap: Record<string, string> = {};
-    for (const order of data.orders) {
-      const doc = await databases.createDocument(
-        appwriteConfig.databaseId,
-        appwriteConfig.ordersCollectionId,
-        ID.unique(),
-        {
-          buyer: order.buyer,
-          farmer: order.farmer,
-          product: order.product,
-          quantity: order.quantity,
-          totalAmount: order.totalAmount,
-          status: order.status,
-          delivery_street: order.delivery_street,
-          delivery_city: order.delivery_city,
-          delivery_state: order.delivery_state,
-          delivery_pincode: order.delivery_pincode,
-          expectedDeliveryDate: order.expectedDeliveryDate,
-          actualDeliveryDate: order.actualDeliveryDate || undefined,
-          trackingNumber: order.trackingNumber || undefined,
-          paymentStatus: order.paymentStatus,
-          notes: order.notes || undefined,
-        }
-      );
-      orderMap[order.product] = doc.$id;
-    }
-    console.log("Orders created");
-
-    // 6. Create Messages
-    for (const message of data.messages) {
-      let fileUrl = message.fileUrl;
-      if (message.messageType === 'image' || message.messageType === 'document') {
-        fileUrl = await uploadImageToStorage(message.fileUrl);
-      }
-      await databases.createDocument(
-        appwriteConfig.databaseId,
-        appwriteConfig.messagesCollectionId,
-        ID.unique(),
-        {
-          sender: message.sender,
-          receiver: message.receiver,
-          content: message.content,
-          messageType: message.messageType,
-          fileUrl: fileUrl,
-          isRead: message.isRead,
-          orderId: message.orderId,
-        }
-      );
-    }
-    console.log("Messages created");
-
-    // 7. Create Reviews
-    for (const review of data.reviews) {
-      const images = review.images
-        ? await Promise.all(review.images.map((url) => uploadImageToStorage(url)))
-        : [];
-      await databases.createDocument(
-        appwriteConfig.databaseId,
-        appwriteConfig.reviewsCollectionId,
-        ID.unique(),
-        {
-          buyer: review.buyer,
-          farmer: review.farmer,
-          product: review.product,
-          order: review.order,
-          rating: review.rating,
-          title: review.title,
-          comment: review.comment,
-          images,
-          isVerified: review.isVerified,
-        }
-      );
-    }
-    console.log("Reviews created");
 
     console.log('✅ Seeding complete.');
   } catch (error) {

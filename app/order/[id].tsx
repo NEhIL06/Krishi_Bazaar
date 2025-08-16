@@ -95,7 +95,7 @@ const OrderDetailPage: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await dispatch(cancelOrder({
+              await dispatch(cancelOrder({ // not required here 
                 orderId: selectedOrder.$id,
                 reason: 'Cancelled by buyer'
               }));

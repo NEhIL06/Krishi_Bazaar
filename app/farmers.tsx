@@ -18,7 +18,7 @@ import GlobalStyles from '../src/constants/styles';
 import LoadingSpinner from '../src/components/common/LoadingSpinner';
 import ErrorMessage from '../src/components/common/ErrorMessage';
 import { Farmer } from '../src/types';
-import { ImageGravity } from 'react-native-appwrite';
+import { ImageGravity, Query } from 'react-native-appwrite';
 
 const FarmersPage: React.FC = () => {
   const [farmers, setFarmers] = useState<Farmer[]>([]);
@@ -26,8 +26,9 @@ const FarmersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
+    if(loaded) return; // Prevent reloading if already loaded
     loadFarmers();
   }, []);
 
@@ -35,11 +36,13 @@ const FarmersPage: React.FC = () => {
     try {
       setError(null);
       const response = await databases.listDocuments(
-        DATABASE_ID as string,
-        COLLECTION_IDS.FARMERS,
-        ['isVerified.equal(true)', 'orderDesc("rating")']
+        "688f5012002f53e1b1de", // DATABASE_ID
+        "68873a62001f447ef53f", // COLLECTION_ID for farmers
+        [Query.equal('isVerified', true), Query.orderDesc('$createdAt')], // Fetch only verified farmers
       );
       setFarmers(response.documents as unknown as Farmer[]);
+      console.log('Farmers loaded:', response.documents.length);
+      setLoaded(true);  
     } catch (error: any) {
       console.error('Failed to load farmers:', error);
       setError(error.message || 'Failed to load farmers');
@@ -57,7 +60,7 @@ const FarmersPage: React.FC = () => {
   const getImageUrl = async (fileId: string) => {
     try {
       const result = storage.getFilePreview(
-        STORAGE_BUCKET_ID as string,
+        "688f502a003b047969d9",
         fileId,
         200,
         200,

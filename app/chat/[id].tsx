@@ -28,6 +28,7 @@ import LoadingSpinner from '../../src/components/common/LoadingSpinner';
 import ErrorMessage from '../../src/components/common/ErrorMessage';
 import MessageService from '../../src/services/messageService';
 import { Message } from '../../src/types';
+import useAppwrite from '@/src/services/useAppwrite';
 
 const ChatPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -60,12 +61,10 @@ const ChatPage: React.FC = () => {
   const loadMessages = async () => {
     if (user && partnerId) {
       try {
-        await dispatch(fetchMessages({
-          userId: user.$id,
-          otherUserId: partnerId,
-          limit: 50,
-          offset: 0,
-        }));
+        await useAppwrite({
+            fn: MessageService.getMessages,
+            params: { userId: user.$id, otherUserId: partnerId },
+          });
       } catch (error) {
         console.error('Failed to load messages:', error);
       }

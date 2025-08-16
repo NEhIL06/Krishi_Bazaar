@@ -6,7 +6,7 @@ const appwriteConfig = {
   endpoint: "",//changed
   projectId: "",//changed
   platform: "",//changed
-  databaseId: "",//changed
+  databaseId: "688f5012002f53e1b1de",//changed
   userCollectionId: "688fbb6300056efcbff0",//changed
   storageBucketId: "688f502a003b047969d9",//changed
   categoriesCollectionId: "688fcf55003266123ae4",
@@ -37,6 +37,21 @@ interface ProductFilters {
 interface SortOptions {
   field: 'price' | 'createdAt' | 'rating' | 'distance';
   direction: 'asc' | 'desc';
+}
+
+
+export const getProductById = async (productId: string): Promise<Product> => {
+  try {
+    const product = await databases.getDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.productsCollectionId,
+      productId
+    );
+    return product as unknown as Product;
+  } catch (error) {
+    console.error('Get product error:', error);
+    throw new Error(error as string);
+  }
 }
 
 class ProductService {
@@ -132,11 +147,7 @@ class ProductService {
     }
   }
 
-  async searchProducts(
-    query: string,
-    filters?: ProductFilters,
-    limit = 20
-  ): Promise<Product[]> {
+  async searchProducts(query: string,filters?: ProductFilters,limit = 20): Promise<Product[]> {
     try {
       const queries: string[] = [
         Query.equal('isAvailable', true),

@@ -2,11 +2,12 @@ import { Query } from 'react-native-appwrite';
 import { databases, DATABASE_ID, COLLECTION_IDS, ID, client } from '../config/appwrite';
 import { Message } from '../types';
  
+
+
+interface getMessagesParams {  userId: string;  
+otherUserId: string; limit?: number; offset?: number; }
 class MessageService {
-  async sendMessage(
-    senderId: string,
-    receiverId: string,
-    content: string,
+  async sendMessage(senderId: string,receiverId: string,content: string,
     messageType: Message['messageType'] = 'text',
     fileUrl: string = '',
     orderId: string = ''
@@ -33,12 +34,7 @@ class MessageService {
     }
   }
 
-  async getMessages(
-    userId: string,
-    otherUserId: string,
-    limit = 50,
-    offset = 0
-  ): Promise<Message[]> {
+  async getMessages({userId,otherUserId,limit = 50,offset = 0}:getMessagesParams) {
     try {
       const response = await databases.listDocuments(
         DATABASE_ID!,
@@ -77,7 +73,7 @@ class MessageService {
     }
   }
 
-  async markAsRead(messageId: string): Promise<void> {
+  async markAsRead(messageId: string) {
     try {
       await databases.updateDocument(
         DATABASE_ID!,
@@ -134,10 +130,7 @@ class MessageService {
     }
   }
 
-  subscribeToMessages(
-    userId: string,
-    callback: (message: Message) => void
-  ): () => void {
+  subscribeToMessages(userId: string,callback: (message: Message) => void): () => void {
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.collections.${COLLECTION_IDS.MESSAGES}.documents`, // see the official documentation for more info
       (response) => {
