@@ -28,16 +28,18 @@ const { width } = Dimensions.get('window');
 const ProductDetailPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { selectedProduct, isLoading, error } = useSelector((state: RootState) => state.products);
-  const { user } = useSelector((state: RootState) => state.auth);
+  const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
   const params = useLocalSearchParams();
   
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [isOrdering, setIsOrdering] = useState(false);
 
   useEffect(() => {
     if (params.id) {
       dispatch(fetchProductById(params.id as string));
+      
     }
   }, [params.id]);
 
@@ -45,59 +47,150 @@ const ProductDetailPage: React.FC = () => {
     if (selectedProduct?.images) {
       // Fetch image URLs for the selected product
       setImageUrls(selectedProduct.images);
-     
     }
   }, [selectedProduct?.images]);
 
+  // Corrected helper functions
   const formatPrice = (price: any) => {
-    return `₹${price.amount}.toLocaleString('en-IN')}/${price.unit}`;
+    // Handle both object and number formats
+    if (typeof price === 'object' && price !== undefined) {
+      return `₹${price.toLocaleString('en-IN')}/${price.unit}`;
+    }
+    // If price is a number and we have product unit
+    return `₹${price?.toLocaleString('en-IN') || '0'}/${getUnit()}`;
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString);
+    if (!dateString) return 'Not specified';
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
-  const handleOrder = () => {
+  // Get price per unit as a number
+  const getPricePerUnit = () => {
+    if (!selectedProduct) return 0;
+    if (typeof selectedProduct.price === 'object' && selectedProduct.price !== undefined) {
+      return selectedProduct.price;
+    }
+    return selectedProduct.price || 0;
+  };
+
+  // Get unit string
+  const getUnit = () => {
+    // Since Product interface doesn't have a unit property, we'll use a default
+    return 'kg'; // Default unit for agricultural products
+  };
+
+  // Calculate total price
+  const calculateTotalPrice = () => {
+    return getPricePerUnit() * quantity;
+  };
+
+  const handleOrder = async () => {
     if (!user) {
       Alert.alert('Login Required', 'Please login to place an order');
       return;
     }
 
-    if (!selectedProduct) return;
+    if (!user.$id) {
+      Alert.alert('Authentication Error', 'User ID not available. Please login again.');
+      return;
+    }
 
-    const totalAmount = selectedProduct.price * quantity;
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      Alert.alert('Authentication Error', 'Your session has expired. Please login again.');
+      return;
+    }
+
+    if (!selectedProduct) {
+      Alert.alert('Error', 'Product information not available');
+      return;
+    }
+
+    if (!selectedProduct.farmer) {
+      Alert.alert('Error', 'Farmer information not available for this product');
+      return;
+    }
+
+    // Validate quantity
+    if (quantity < (selectedProduct.minimumQuantity || 1)) {
+      Alert.alert('Invalid Quantity', `Minimum order quantity is ${selectedProduct.minimumQuantity || 1} ${getUnit()}`);
+      return;
+    }
+
+    if (quantity > selectedProduct.availableQuantity) {
+      Alert.alert('Invalid Quantity', `Maximum available quantity is ${selectedProduct.availableQuantity} ${getUnit()}`);
+      return;
+    }
+
+    const totalAmount = calculateTotalPrice();
     
     Alert.alert(
       'Confirm Order',
-      `Order ${quantity} ${selectedProduct.price} of ${selectedProduct.name} for ${formatPrice({ amount: totalAmount, unit: 'total' })}?`,
+      `Order ${quantity} ${getUnit()} of ${selectedProduct.name} for ₹${totalAmount.toLocaleString('en-IN')}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Confirm',
-          onPress: () => {
-            const id = orderService.createOrder({
-                product: selectedProduct.name,
-                buyer: user?.$id.toString(),
+          onPress: async () => {
+            try {
+              setIsOrdering(true);
+              
+              // Create order data
+              const orderData = {
+                product: selectedProduct.$id, // Use product ID instead of name
+                buyer: user.$id,
                 farmer: selectedProduct.farmer,
                 quantity: quantity,
                 totalAmount: totalAmount,
-                delivery_street: '',  
-                delivery_city: '',
-                delivery_state: '', 
-                delivery_pincode: '',
-                expectedDeliveryDate: ''
-            })
+                delivery_street: user.street || '',  
+                delivery_city: user.city || '',
+                delivery_state: user.state || '', 
+                delivery_pincode: user.pincode || '',
+                expectedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
+              };
 
-            // Navigate to order confirmation or create order
-            router.push({
-              pathname: '/order/[id]',
-              params: {
-                id: id.toString(),
-                productId: selectedProduct.$id,
-                quantity: quantity.toString(),
-                totalAmount: totalAmount.toString(),
+              console.log("Creating order with data:", orderData);
+              console.log("User object:", user);
+              console.log("Selected product:", selectedProduct);
+              console.log("User authentication status:", isAuthenticated);
+              
+              const createdOrder = await orderService.createOrder(orderData);
+              
+              if (!createdOrder || !createdOrder.$id) {
+                throw new Error('Order creation failed - no order ID returned');
               }
-            });
+
+              console.log("Order created successfully:", createdOrder.$id);
+
+              // Navigate to order details
+              router.push({
+                pathname: '/order/[id]',
+                params: {
+                  id: createdOrder.$id,
+                  productId: selectedProduct.$id,
+                  quantity: quantity.toString(),
+                  totalAmount: totalAmount.toString(),
+                }
+              });
+            } catch (error) {
+              console.error('Order creation error:', error);
+              let errorMessage = 'Failed to create order. Please try again.';
+              
+              if (error instanceof Error) {
+                errorMessage = error.message;
+              } else if (typeof error === 'string') {
+                errorMessage = error;
+              }
+              
+              Alert.alert('Order Creation Failed', errorMessage);
+            } finally {
+              setIsOrdering(false);
+            }
           }
         }
       ]
@@ -114,6 +207,16 @@ const ProductDetailPage: React.FC = () => {
         name: 'Farmer'
       }
     });
+  };
+
+  const increaseQuantity = () => {
+    if (!selectedProduct) return;
+    setQuantity(Math.min(selectedProduct.availableQuantity, quantity + 1));
+  };
+
+  const decreaseQuantity = () => {
+    if (!selectedProduct) return;
+    setQuantity(Math.max(selectedProduct.minimumQuantity || 1, quantity - 1));
   };
 
   if (isLoading) {
@@ -205,21 +308,30 @@ const ProductDetailPage: React.FC = () => {
           <View style={styles.titleRow}>
             <View style={styles.titleContainer}>
               <Text style={styles.productName}>{selectedProduct.name}</Text>
-              <Text style={styles.productNameHindi}>{selectedProduct.nameHindi}</Text>
+              {selectedProduct.nameHindi && (
+                <Text style={styles.productNameHindi}>{selectedProduct.nameHindi}</Text>
+              )}
             </View>
-            <View style={styles.gradeContainer}>
-              <Text style={styles.grade}>{selectedProduct.grade}</Text>
-            </View>
+            {selectedProduct.grade && (
+              <View style={styles.gradeContainer}>
+                <Text style={styles.grade}>{selectedProduct.grade}</Text>
+              </View>
+            )}
           </View>
 
-          <Text style={styles.variety}>{selectedProduct.variety}</Text>
-          <Text style={styles.description}>{selectedProduct.description}</Text>
+          {selectedProduct.variety && (
+            <Text style={styles.variety}>{selectedProduct.variety}</Text>
+          )}
+          
+          {selectedProduct.description && (
+            <Text style={styles.description}>{selectedProduct.description}</Text>
+          )}
 
           {/* Price */}
           <View style={styles.priceContainer}>
             <Text style={styles.price}>{formatPrice(selectedProduct.price)}</Text>
             <Text style={styles.minimumOrder}>
-              Min. order: {selectedProduct.minimumQuantity} {selectedProduct.price}
+              Min. order: {selectedProduct.minimumQuantity || 1} {getUnit()}
             </Text>
           </View>
 
@@ -227,7 +339,7 @@ const ProductDetailPage: React.FC = () => {
           <View style={styles.availabilityContainer}>
             <MaterialIcons name="inventory" size={20} color={Colors.success[500]} />
             <Text style={styles.availabilityText}>
-              {selectedProduct.availableQuantity} {selectedProduct.price} available
+              {selectedProduct.availableQuantity} {getUnit()} available
             </Text>
           </View>
 
@@ -235,58 +347,80 @@ const ProductDetailPage: React.FC = () => {
           <View style={styles.detailsContainer}>
             <Text style={styles.sectionTitle}>Product Details</Text>
             
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Harvest Date:</Text>
-              <Text style={styles.detailValue}>{formatDate(selectedProduct.harvestDate).toString()}</Text>
-            </View>
+            {selectedProduct.harvestDate && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Harvest Date:</Text>
+                <Text style={styles.detailValue}>{formatDate(selectedProduct.harvestDate)}</Text>
+              </View>
+            )}
             
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Expiry Date:</Text>
-              <Text style={styles.detailValue}>{formatDate(selectedProduct.expiryDate).toString()}</Text>
-            </View>
+            {selectedProduct.expiryDate && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Expiry Date:</Text>
+                <Text style={styles.detailValue}>{formatDate(selectedProduct.expiryDate)}</Text>
+              </View>
+            )}
             
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Storage:</Text>
-              <Text style={styles.detailValue}>{selectedProduct.storageConditions}</Text>
-            </View>
+            {selectedProduct.storageConditions && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Storage:</Text>
+                <Text style={styles.detailValue}>{selectedProduct.storageConditions}</Text>
+              </View>
+            )}
             
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Delivery:</Text>
-              <Text style={styles.detailValue}>{selectedProduct.deliveryTimeframe}</Text>
-            </View>
+            {selectedProduct.deliveryTimeframe && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Delivery:</Text>
+                <Text style={styles.detailValue}>{selectedProduct.deliveryTimeframe}</Text>
+              </View>
+            )}
           </View>
 
           {/* Location */}
-          <View style={styles.locationContainer}>
-            <Text style={styles.sectionTitle}>Location</Text>
-            <View style={styles.locationRow}>
-              <MaterialIcons name="location-on" size={20} color={Colors.primary[400]} />
-              <Text style={styles.locationText}>{selectedProduct.city}, {selectedProduct.state}</Text>
+          {(selectedProduct.city || selectedProduct.state) && (
+            <View style={styles.locationContainer}>
+              <Text style={styles.sectionTitle}>Location</Text>
+              <View style={styles.locationRow}>
+                <MaterialIcons name="location-on" size={20} color={Colors.primary[400]} />
+                <Text style={styles.locationText}>
+                  {[selectedProduct.city, selectedProduct.state].filter(Boolean).join(', ')}
+                </Text>
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Quantity Selector */}
           <View style={styles.quantityContainer}>
             <Text style={styles.sectionTitle}>Quantity</Text>
             <View style={styles.quantitySelector}>
               <TouchableOpacity
-                style={styles.quantityButton}
-                onPress={() => setQuantity(Math.max(selectedProduct.minimumQuantity, quantity - 1))}
+                style={[styles.quantityButton, quantity <= (selectedProduct.minimumQuantity || 1) && styles.disabledButton]}
+                onPress={decreaseQuantity}
+                disabled={quantity <= (selectedProduct.minimumQuantity || 1)}
               >
-                <MaterialIcons name="remove" size={24} color={Colors.primary[400]} />
+                <MaterialIcons 
+                  name="remove" 
+                  size={24} 
+                  color={quantity <= (selectedProduct.minimumQuantity || 1) ? Colors.neutral[400] : Colors.primary[400]} 
+                />
               </TouchableOpacity>
               <Text style={styles.quantityText}>
-                {quantity} {selectedProduct.price}
+                {quantity} {getUnit()}
               </Text>
               <TouchableOpacity
-                style={styles.quantityButton}
-                onPress={() => setQuantity(Math.min(selectedProduct.availableQuantity, quantity + 1))}
+                style={[styles.quantityButton, quantity >= selectedProduct.availableQuantity && styles.disabledButton]}
+                onPress={increaseQuantity}
+                disabled={quantity >= selectedProduct.availableQuantity}
               >
-                <MaterialIcons name="add" size={24} color={Colors.primary[400]} />
+                <MaterialIcons 
+                  name="add" 
+                  size={24} 
+                  color={quantity >= selectedProduct.availableQuantity ? Colors.neutral[400] : Colors.primary[400]} 
+                />
               </TouchableOpacity>
             </View>
             <Text style={styles.totalPrice}>
-              Total: {formatPrice({ amount: selectedProduct.price * quantity, unit: 'total' })}
+              Total: ₹{calculateTotalPrice().toLocaleString('en-IN')}
             </Text>
           </View>
         </View>
@@ -301,9 +435,10 @@ const ProductDetailPage: React.FC = () => {
           style={styles.contactButton}
         />
         <CustomButton
-          title="Place Order"
+          title={isOrdering ? "Placing Order..." : "Place Order"}
           onPress={handleOrder}
           style={styles.orderButton}
+          disabled={isOrdering || quantity > selectedProduct.availableQuantity}
         />
       </View>
     </SafeAreaView>
@@ -496,28 +631,6 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     fontWeight: '600',
   },
-  certificationsContainer: {
-    marginBottom: 20,
-  },
-  certificationsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  certificationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.success[50],
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  certificationText: {
-    fontSize: 12,
-    color: Colors.success[700],
-    marginLeft: 4,
-  },
   locationContainer: {
     marginBottom: 20,
   },
@@ -547,6 +660,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.neutral[100],
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  disabledButton: {
+    backgroundColor: Colors.neutral[50],
   },
   quantityText: {
     fontSize: 18,

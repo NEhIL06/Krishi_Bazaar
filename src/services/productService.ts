@@ -58,8 +58,8 @@ class ProductService {
       }
   
       if (filters?.priceRange) {
-        queries.push(Query.greaterThanEqual('price.amount', filters.priceRange.min));
-        queries.push(Query.lessThanEqual('price.amount', filters.priceRange.max));
+        queries.push(Query.greaterThanEqual('price', filters.priceRange.min));
+        queries.push(Query.lessThanEqual('price', filters.priceRange.max));
       }
   
       if (filters?.minimumQuantity) {
@@ -68,7 +68,7 @@ class ProductService {
   
       if (sort) {
         if (sort.field === 'price') {
-          queries.push(sort.direction === 'asc' ? Query.orderAsc('price.amount') : Query.orderDesc('price.amount'));
+          queries.push(sort.direction === 'asc' ? Query.orderAsc('price') : Query.orderDesc('price'));
         } else if (sort.field === 'createdAt') {
           // Use $createdAt instead of createdAt
           queries.push(sort.direction === 'asc' ? Query.orderAsc('$createdAt') : Query.orderDesc('$createdAt'));

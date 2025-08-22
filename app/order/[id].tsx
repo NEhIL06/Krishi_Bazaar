@@ -31,7 +31,11 @@ const OrderDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (params.id) {
-      dispatch(fetchOrderById(params.id as string));
+      const order = dispatch(fetchOrderById(params.id as string));
+      order.catch((err: any) => {
+        console.error('Failed to fetch order:', err);
+        Alert.alert('Error', 'Failed to fetch order details. Please try again later.');
+      });
     }
   }, [params.id]);
 

@@ -17,11 +17,76 @@ interface CreateOrderData {
 }
 
 class OrderService {
+  // Test method to verify Appwrite connection
+  async testConnection(): Promise<boolean> {
+    try {
+      console.log('Testing Appwrite connection...');
+      console.log('Client endpoint:', 'https://fra.cloud.appwrite.io/v1');
+      console.log('Project ID:', '688f4f530024f4b39ef6');
+      
+      // Check if databases service is available
+      if (!databases) {
+        console.error('Databases service not available');
+        return false;
+      }
+      
+      // Try to list documents to test the connection
+      const response = await databases.listDocuments(
+        "688f5012002f53e1b1de",
+        "688fd43600046ffb7b9d",
+        [],
+        
+      );
+      
+      console.log('Connection test successful:', response);
+      return true;
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Full error object:', error);
+      return false;
+    }
+  }
+
   async createOrder(orderData: CreateOrderData): Promise<Order> {
     try {
+      console.log('Creating order with data:', orderData);
+      
+      // Validate order data
+      if (!orderData.buyer || !orderData.farmer || !orderData.product || !orderData.quantity || !orderData.totalAmount) {
+        throw new Error('Missing required order data: buyer, farmer, product, quantity, and totalAmount are required');
+      }
+      
+      if (orderData.quantity <= 0) {
+        throw new Error('Quantity must be greater than 0');
+      }
+      
+      if (orderData.totalAmount <= 0) {
+        throw new Error('Total amount must be greater than 0');
+      }
+      
+      // Use configuration from appwrite config if available, otherwise fallback to hardcoded values
+      const databaseId = DATABASE_ID || "688f5012002f53e1b1de";
+      const collectionId = COLLECTION_IDS?.ORDERS || "688fd43600046ffb7b9d";
+      
+      console.log('Using database ID:', databaseId);
+      console.log('Using collection ID:', collectionId);
+      
+      // Check if databases service is properly initialized
+      if (!databases) {
+        throw new Error('Databases service not initialized');
+      }
+      
+      // Test connection first
+      const isConnected = await this.testConnection();
+      if (!isConnected) {
+        throw new Error('Failed to connect to Appwrite. Please check your internet connection and try again.');
+      }
+      
       const order = await databases.createDocument(
-        "688f5012002f53e1b1de", // Database Id
-        "688fd43600046ffb7b9d", // orders collection id
+        databaseId,
+        collectionId,
         ID.unique(),
         {
           ...orderData,
@@ -29,9 +94,18 @@ class OrderService {
           paymentStatus: 'pending',
         }
       );
-      return order.documents[0] as Order;
+      
+      console.log('Order created successfully:', order);
+      console.log('Order ID:', order.$id);
+      
+      return order as unknown as Order;
     } catch (error) {
       console.error('Create order error:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error
+      });
       throw error;
     }
   }
@@ -61,7 +135,7 @@ class OrderService {
         "688fd43600046ffb7b9d", // orders collection id
         orderId
       );
-      return order.documents[0] as Order;
+      return order as unknown as Order;
     } catch (error) {
       console.error('Get order error:', error);
       throw error;
@@ -88,8 +162,8 @@ class OrderService {
         orderId,
         updateData
       );
-      console.log(order.documents[0]);
-      return order.documents[0] as Order;
+      console.log(order);
+      return order as unknown as Order;
     } catch (error) {
       console.error('Update order status error:', error);
       throw error;
@@ -108,7 +182,7 @@ class OrderService {
         }
       );
 
-      return order.documents[0] as Order;
+      return order as unknown as Order;
     } catch (error) {
       console.error('Cancel order error:', error);
       throw error;

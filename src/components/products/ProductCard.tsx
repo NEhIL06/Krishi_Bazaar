@@ -103,15 +103,35 @@ const ProductCard: React.FC<ProductCardProps> = ({
   }, [product.images, product.$id, product.name]);
 
   // Memoized price formatter
-  const formatPrice = useCallback((price: number, minimumQuantity?: number) => {
-    const formattedPrice = `₹${price.toLocaleString('en-IN')}`;
-    return minimumQuantity ? `${formattedPrice}/${minimumQuantity}` : formattedPrice;
+  const formatPrice = useCallback((price: any) => {
+    console.log('Product price data:', price, typeof price);
+    
+    // Handle different price formats
+    if (typeof price === 'object' && price !== undefined) {
+      return `₹${price.toLocaleString('en-IN')}/kg`;
+    }
+    if (typeof price === 'number') {
+      return `₹${price.toLocaleString('en-IN')}/kg`;
+    }
+    if (typeof price === 'string') {
+      const numPrice = parseFloat(price);
+      if (!isNaN(numPrice)) {
+        return `₹${numPrice.toLocaleString('en-IN')}/kg`;
+      }
+    }
+    return `₹0/kg`;
   }, []);
 
   // Memoized quantity formatter
   const formatQuantity = useCallback((quantity: number, minimumQuantity?: number) => {
-    const displayUnit = minimumQuantity || 'units';
-    return `${quantity.toLocaleString('en-IN')} ${displayUnit} available`;
+    const minQty = minimumQuantity || 1;
+    const availableQty = quantity || 0;
+    
+    if (availableQty === 0) {
+      return 'Out of stock';
+    }
+    
+    return `${availableQty.toLocaleString('en-IN')} kg available (Min: ${minQty} kg)`;
   }, []);
 
   // Handle image loading error
@@ -153,7 +173,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       case 'loaded':
         return (
           <Image 
-            source={{ uri: imageUrl.toString() }} 
+            source={{ uri: imageUrl.toString()}} 
             style={imageContainerStyle}
             onError={handleImageError}
             onLoad={handleImageLoad}
@@ -213,7 +233,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
     
     <View style={styles.priceRow}>
       <Text style={styles.price}>
-        {formatPrice(product.price, product.minimumQuantity)}
+        {formatPrice(product.price)}
       </Text>
       {product.grade && (
         <View style={styles.gradeContainer}>
@@ -232,7 +252,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
     <View style={styles.locationRow}>
       <MaterialIcons name="location-on" size={16} color={Colors.neutral[500]} />
       <Text style={styles.location} numberOfLines={1}>
-        {product.city}, {product.state}
+        {[product.city, product.state].filter(Boolean).join(', ') || 'Location not specified'}
       </Text>
     </View>
 
@@ -241,7 +261,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         <View style={styles.ratingContainer}>
           <MaterialIcons name="star" size={14} color={Colors.warning[500]} />
           <Text style={styles.ratingText}>
-            {product.rating.toFixed(1)} ({product.rating || 0})
+            {product.rating.toFixed(1)}
           </Text>
         </View>
       </View>
