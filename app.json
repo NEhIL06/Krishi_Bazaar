@@ -18,8 +18,9 @@
       "bundleIdentifier": "com.krishibazar.app"
     },
     "android": {
+      "icon": "./assets/icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/appstore.png",
         "backgroundColor": "#4A7C59"
       },
       "package": "com.krishibazar.app"

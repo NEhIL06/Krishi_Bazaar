@@ -20,6 +20,8 @@ export interface User {
 }
 
 export interface Category {
+  tll: number;
+  timestamp: number;
   $id: string;
   $createdAt: string;
   name: string;

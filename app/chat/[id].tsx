@@ -44,6 +44,13 @@ const ChatPage: React.FC = () => {
   const partnerId = params.id as string;
   const partnerName = params.name as string || 'Farmer';
 
+  // Use the useAppwrite hook at the top level for real-time updates
+  const { data: messagesData } = useAppwrite({
+    fn: MessageService.getMessages,
+    params: { userId: user?.$id || '', otherUserId: partnerId },
+    skip: !user || !partnerId,
+  });
+
   useEffect(() => {
     if (user && partnerId) {
       loadMessages();
@@ -58,13 +65,23 @@ const ChatPage: React.FC = () => {
     };
   }, [user, partnerId]);
 
+  // Handle real-time message updates from the hook
+  useEffect(() => {
+    if (messagesData && Array.isArray(messagesData)) {
+      // Only add new messages that aren't already in the Redux store
+      messagesData.forEach((message: Message) => {
+        const messageExists = messages.some(m => m.$id === message.$id);
+        if (!messageExists) {
+          dispatch(addMessage(message));
+        }
+      });
+    }
+  }, [messagesData, dispatch, messages]);
+
   const loadMessages = async () => {
     if (user && partnerId) {
       try {
-        await useAppwrite({
-            fn: MessageService.getMessages,
-            params: { userId: user.$id, otherUserId: partnerId },
-          });
+        await dispatch(fetchMessages({ userId: user.$id, otherUserId: partnerId }));
       } catch (error) {
         console.error('Failed to load messages:', error);
       }

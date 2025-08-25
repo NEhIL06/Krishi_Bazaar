@@ -2,6 +2,8 @@ import { Databases, Query, Storage, ImageGravity, Client } from 'react-native-ap
 import { Product, Category } from '../types';
 import { databases, storage } from '../config/appwrite';
 import * as Sentry from '@sentry/react-native';
+import { AsyncStorageCache } from '../config/cache';
+import ProductCard from '../components/products/ProductCard';
 const appwriteConfig = {
   endpoint: "",//changed
   projectId: "",//changed
@@ -40,6 +42,25 @@ interface SortOptions {
 }
 
 class ProductService {
+
+
+  private readonly CACHE_TTL = {
+    PRODUCTS: 300,        // 5 minutes - frequently changing
+    CATEGORIES: 3600,     // 1 hour - less frequent changes
+    FEATURED: 600,        // 10 minutes - moderate freshness needed
+    SEARCH: 180,          // 3 minutes - search results change often
+    FARMER_PRODUCTS: 300, // 5 minutes - inventory changes
+    IMAGE_URLS: 86400,    // 24 hours - URLs rarely change
+    USER_PROFILE: 1800,   // 30 minutes - user data
+    APP_CONFIG: 43200,    // 12 hours - app configuration
+  };
+
+
+  private isExpired(item: any): boolean {
+    if (!item.ttl) return false;
+    const now = Date.now();
+    return (now - item.timestamp) > (item.ttl * 1000);
+  }
   async getProducts(
     filters?: ProductFilters,
     sort?: SortOptions,
@@ -95,6 +116,13 @@ class ProductService {
 
   async getProductById(productId: string): Promise<Product> {
     try {
+      const cachedProduct = localStorage.getItem(`product:${productId}`);
+      if(cachedProduct && !this.isExpired(JSON.parse(cachedProduct))) {
+        return cachedProduct as unknown as Product;
+      }
+      if(localStorage.getItem(`product:${productId}`)) {
+        return localStorage.getItem(`product:${productId}`) as unknown as Product;
+      }
       const product = await databases.getDocument(
         appwriteConfig.databaseId,
         appwriteConfig.productsCollectionId,
@@ -102,6 +130,9 @@ class ProductService {
       );
       console.log('Product fetched:', product);
       Sentry.captureException(new Error('Product fetched'))
+      product.tll = this.CACHE_TTL.PRODUCTS; // Set TTL for caching
+      product.timestamp = Date.now(); // Set current timestamp for caching
+      localStorage.setItem(`product:${productId}`, product as unknown as string);
       return product as unknown as Product;
     } catch (error) {
       console.error('Get product error:', error);
@@ -111,11 +142,21 @@ class ProductService {
 
   async getCategories(): Promise<Category[]> {
     try {
+
+      // if(this.isExpired(JSON.parse(localStorage.getItem('categories') || '{}'))) {
+      //   localStorage.removeItem('categories');
+      // } 
+      // if(localStorage.getItem('categories')) {
+      // return localStorage.getItem('categories') as unknown as Category[];
+      // }
+      
       const response = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.categoriesCollectionId,
         [Query.equal('isActive', true), Query.orderAsc('name')]
       );
+     
+      //localStorage.setItem('categories', JSON.stringify(response.documents as unknown as Category[]));
       return response.documents as unknown as Category[];
     } catch (error) {
       console.error('Get categories error:', error);
@@ -182,6 +223,10 @@ class ProductService {
 
   async getImageUrl(fileId: string): Promise<string> {
     try {
+      const cachedImage = localStorage.getItem(`imageUrl:${fileId}`);
+      if( cachedImage && !this.isExpired(JSON.parse(cachedImage))) {
+        return cachedImage as unknown as string;
+      }
       console.log('Fetching image URL for fileId:', fileId);
       const result = storage.getFilePreviewURL(
         "688f502a003b047969d9", // appwriteConfig.storageBucketId,
@@ -192,6 +237,7 @@ class ProductService {
         85 // quality
       );
       console.log('Image URL:', result);
+      localStorage.setItem(`imageUrl:${fileId}`, result.toString());
       return result.toString();
     } catch (error) {
       console.error('Get image URL error:', error);

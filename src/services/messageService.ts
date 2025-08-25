@@ -1,7 +1,6 @@
 import { Query } from 'react-native-appwrite';
 import { databases, DATABASE_ID, COLLECTION_IDS, ID, client } from '../config/appwrite';
 import { Message } from '../types';
- 
 
 const appwriteConfig = {
   endpoint: "",//changed
@@ -25,10 +24,11 @@ interface getMessagesParams {
   offset?: number; 
 }
 
-
-
 class MessageService {
-  async sendMessage(senderId: string,receiverId: string,content: string,
+  async sendMessage(
+    senderId: string,
+    receiverId: string,
+    content: string,
     messageType: Message['messageType'] = 'text',
     fileUrl: string = '',
     orderId: string = ''
@@ -48,15 +48,18 @@ class MessageService {
           isRead: false,
         }
       );
-      return message.documents[0] as Message;
+      
+      // ✅ Fix: createDocument returns a single document, not an array
+      return message as unknown as Message;
     } catch (error) {
       console.error('Send message error:', error);
       throw error;
     }
   }
 
-  async getMessages({userId,otherUserId,limit = 50,offset = 0}:getMessagesParams) {
+  async getMessages({userId, otherUserId, limit = 50, offset = 0}: getMessagesParams) {
     try {
+      // Get messages sent by user to other user
       const response = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.messagesCollectionId,
@@ -69,6 +72,7 @@ class MessageService {
         ]
       );
 
+      // Get messages sent by other user to current user
       const response2 = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.messagesCollectionId,
@@ -151,9 +155,9 @@ class MessageService {
     }
   }
 
-  subscribeToMessages(userId: string,callback: (message: Message) => void): () => void {
+  subscribeToMessages(userId: string, callback: (message: Message) => void): () => void {
     const unsubscribe = client.subscribe(
-      `databases.${DATABASE_ID}.collections.${COLLECTION_IDS.MESSAGES}.documents`, // see the official documentation for more info
+      `databases.${DATABASE_ID}.collections.${COLLECTION_IDS.MESSAGES}.documents`,
       (response) => {
         const message = response.payload as Message;
         if (message.receiver === userId || message.sender === userId) {
